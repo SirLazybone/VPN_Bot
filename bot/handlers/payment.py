@@ -127,7 +127,7 @@ async def donate_webhook(request: Request):
             # Обрабатываем подтверждение вебхука
             if "type" in data and data.get("type") == "confirm":
                 logger.info("Processing confirm webhook")
-                return Response(content="OK", status_code=200)
+                return Response(content=data.get("uid"), status_code=200)
 
             # Обрабатываем донат
             if "sum" in data:
