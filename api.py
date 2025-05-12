@@ -1,11 +1,9 @@
 from fastapi import FastAPI
-from bot.handlers.payment import router as payment_router
+from bot.handlers.payment import webhook_router
 
 app = FastAPI(title="VPN Bot API")
-app.include_router(payment_router, prefix="/webhook")
+app.include_router(webhook_router, prefix="/webhook")
 
-# Подключаем роутер для платежей
-# app.include_router(payment_router)
 
 if __name__ == "__main__":
     import uvicorn

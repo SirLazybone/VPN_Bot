@@ -6,6 +6,7 @@ from db.database import async_session
 from db.service.payment_service import create_payment, get_user_payments, get_payment_by_id
 from db.service.user_service import get_or_create_user, get_user_by_username
 from bot.vpn_manager import VPNManager
+from fastapi import APIRouter, Request
 import json
 from datetime import datetime
 import traceback
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 router = Router()
-app = FastAPI()
+webhook_router = APIRouter()
 
 
 @app.on_event("startup")
@@ -126,7 +127,7 @@ async def check_payment(callback: types.CallbackQuery):
             )
 
 
-@app.post("/webhook/donate")
+@webhook_router.post("/donate")
 async def donate_webhook(request: Request):
     async with async_session() as session:
         try:
