@@ -19,17 +19,6 @@ logger = logging.getLogger(__name__)
 router = Router()
 webhook_router = APIRouter()
 
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("FastAPI application starting up...")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("FastAPI application shutting down...")
-
-
 # Стоимость VPN в копейках (150 рублей = 15000 копеек)
 VPN_PRICE = 149
 
