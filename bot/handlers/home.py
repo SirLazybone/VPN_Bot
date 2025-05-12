@@ -61,7 +61,7 @@ async def home_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data == "configs")
 async def configs_callback(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Инструкция", url="https://ya.ru/")], # TODO: вставить ссылку
+        [InlineKeyboardButton(text="Инструкция", url="https://ya.ru/")],  # TODO: вставить ссылку
         [InlineKeyboardButton(text="Домой", callback_data='home')]
     ])
     async with async_session() as session:
@@ -86,7 +86,7 @@ async def configs_callback(callback: types.CallbackQuery):
         await callback.message.answer(
             f"🔑 Ваша VPN конфигурация:\n\n"
             f"<code>{user.vpn_link}</code>\n\n"
-            f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
+            f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}"
             "Нажмите на конфигурации для копирования",
             reply_markup=keyboard
         )

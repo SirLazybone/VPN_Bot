@@ -64,6 +64,12 @@ async def process_payment(callback: types.CallbackQuery, bot):
                         text="✅ Проверить оплату",
                         callback_data=f"check_payment:{payment.id}"
                     )
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text="Домой",
+                        callback_data='home'
+                    )
                 ]
 
             ]
