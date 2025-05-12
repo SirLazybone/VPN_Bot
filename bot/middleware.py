@@ -4,6 +4,7 @@ from typing import Callable, Dict, Any, Awaitable
 from bot.utils import check_subscription
 from config.config import CHANNEL_USERNAME
 
+
 class SubscriptionMiddleware(BaseMiddleware):
     async def __call__(
         self,

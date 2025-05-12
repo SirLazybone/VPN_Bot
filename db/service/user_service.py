@@ -3,6 +3,12 @@ from db.models import User
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
+async def is_user_exist(session: AsyncSession, username) -> bool:
+    result = await session.execute(select(User).where(User.username == username))
+    user = result.scalar_one_or_none()
+    return user is not None
+
+
 async def get_or_create_user(session, user_data):
     result = await session.execute(select(User).where(User.telegram_id == user_data.id))
     user = result.scalar_one_or_none()
@@ -43,7 +49,7 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> 
     base_time = user.subscription_end if user.subscription_end and user.subscription_end > now else now
     user.subscription_start = user.subscription_start
     user.subscription_end = base_time + timedelta(days=days)
-    user.is_active=True
+    user.is_active = True
 
     await session.commit()
     return True
