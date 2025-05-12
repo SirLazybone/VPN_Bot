@@ -13,9 +13,9 @@ jobs:
       postgres:
         image: postgres:15
         env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: test_db
+          POSTGRES_USER: vpn_bot
+          POSTGRES_PASSWORD: qwerty
+          POSTGRES_DB: vpn_bot
         ports:
           - 5432:5432
         options: >-
@@ -39,7 +39,7 @@ jobs:
         
     - name: Run tests
       env:
-        DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db
+        DATABASE_URL: postgresql://vpn_bot:qwerty@localhost:5432/vpn_bot
       run: |
         python -m pytest
 
@@ -58,7 +58,7 @@ jobs:
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
-          cd /path/to/app
+          cd ~/vpn-bot
           git pull origin main
           docker-compose down
           docker-compose build
