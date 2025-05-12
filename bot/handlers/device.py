@@ -58,7 +58,7 @@ async def process_vpn_config(
         if vpn_link:
             await callback.message.edit_text(
                 f"🔑 Ваша VPN конфигурация для {platform}:\n\n"
-                f"{vpn_link}\n\n"
+                f"<code>{vpn_link}</code>\n\n"
                 f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
                 "Спасибо за регистрацию! Вам предоставлен пробный период на 30 дней.",
                 reply_markup=keyboard

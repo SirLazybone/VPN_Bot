@@ -114,7 +114,7 @@ async def update_subscription(callback: types.CallbackQuery):
                     "✅ Подписка успешно продлена!\n\n"
                     f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
                     f"Ваш баланс: {user.balance} руб.\n\n"
-                    f"Ваша VPN конфигурация:\n{vpn_link}",
+                    f"Ваша VPN конфигурация:\n<code>{vpn_link}</code>",
                     reply_markup=types.InlineKeyboardMarkup(
                         inline_keyboard=[
                             [
