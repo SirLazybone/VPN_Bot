@@ -18,8 +18,8 @@ async def process_home_action(event):
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text='Мои сервера', callback_data='configs')],
+            [InlineKeyboardButton(text='Обновить подписку', callback_data='update_sub')],
             [InlineKeyboardButton(text='Обновить', callback_data='home')],
-            [InlineKeyboardButton(text='Пополнить баланс', callback_data='payment')],
             [InlineKeyboardButton(text='Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
     )

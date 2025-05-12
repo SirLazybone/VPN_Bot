@@ -21,6 +21,12 @@ async def cmd_start(message: types.Message, bot):
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
+                    text="meow_shield",
+                    url=f"https://t.me/{CHANNEL_USERNAME}"
+                )
+            ],
+            [
+                types.InlineKeyboardButton(
                     text="✅ Проверить подписку",
                     callback_data="check_subscription"
                 )
@@ -30,9 +36,8 @@ async def cmd_start(message: types.Message, bot):
     
     await message.answer(
         "Добро пожаловать!\n\n"
-        "Для использования бота необходимо подписаться на наш канал:\n"
-        f"https://t.me/{CHANNEL_USERNAME}\n\n"
-        "После подписки нажмите кнопку ниже для проверки:",
+        "Для использования бота необходимо подписаться на наш канал\n"
+        "После подписки нажмите кнопку ниже для проверки",
         reply_markup=keyboard
     )
 
