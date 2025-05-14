@@ -85,10 +85,11 @@ async def configs_callback(callback: types.CallbackQuery):
 
         await callback.message.answer(
             f"🔑 Ваша VPN конфигурация:\n\n"
-            f"```{user.vpn_link}```\n\n"
-            f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}"
+            f"```\n{user.vpn_link}\n```\n\n"
+            f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n"
             "Нажмите на конфигурации для копирования",
-            reply_markup=keyboard
+            reply_markup=keyboard,
+            parse_mode="Markdown"
         )
         await callback.answer() 
 
@@ -118,7 +119,9 @@ async def process_update_sub_action(event):
                 "✅ Подписка успешно продлена!\n\n"
                 f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
                 f"Ваш баланс: {user.balance} руб.\n\n"
-                f"Ваша VPN конфигурация:\n```{vpn_link}```"
+                f"Ваша VPN конфигурация:\n\n"
+                f"```\n{user.vpn_link}\n```\n\n",
+
             ) if vpn_link else (
                 "❌ Ошибка при обновлении VPN конфигурации.\n"
                 "Пожалуйста, свяжитесь с поддержкой."
@@ -163,12 +166,14 @@ async def process_update_sub_action(event):
         if isinstance(event, types.Message):
             await event.answer(
                 message_text,
-                reply_markup=success_keyboard if success and vpn_link else error_keyboard
+                reply_markup=success_keyboard if success and vpn_link else error_keyboard,
+                parse_mode="Markdown"
             )
         else:  # CallbackQuery
             await event.message.edit_text(
                 message_text,
-                reply_markup=success_keyboard if success and vpn_link else error_keyboard
+                reply_markup=success_keyboard if success and vpn_link else error_keyboard,
+                parse_mode="Markdown"
             )
             await event.answer()
 
