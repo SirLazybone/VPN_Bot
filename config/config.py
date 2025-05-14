@@ -11,3 +11,4 @@ DONATE_STREAM_URL = "https://donate.stream/donate_67f84fc4a11fb"
 TECH_SUPPORT_USERNAME = os.getenv("TECH_SUPPORT_USERNAME")  # Username поддержки
 API_TOKEN = os.getenv("API_TOKEN")
 API_URL = os.getenv("API_URL")
+VPN_PRICE = float(os.getenv("VPN_PRICE"))

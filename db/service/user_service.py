@@ -2,6 +2,7 @@ from sqlalchemy import select
 from db.models import User
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
+from config.config import VPN_PRICE
 
 async def is_user_exist(session: AsyncSession, username) -> bool:
     result = await session.execute(select(User).where(User.username == username))
@@ -17,7 +18,7 @@ async def get_or_create_user(session, user_data):
     new_user = User(
         telegram_id=user_data.id,
         username=user_data.username,
-        balance=149,
+        balance=VPN_PRICE,
         is_active=True
     )
     session.add(new_user)
@@ -38,10 +39,10 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> 
     
     balance = user.balance
 
-    if balance < 149:
+    if balance < VPN_PRICE:
         return False
     
-    user.balance -= 149
+    user.balance -= VPN_PRICE
 
     now = datetime.utcnow()
 

@@ -17,10 +17,10 @@ async def process_home_action(event):
     """
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text='Мои сервера', callback_data='configs')],
-            [InlineKeyboardButton(text='Обновить подписку', callback_data='update_sub')],
-            [InlineKeyboardButton(text='Обновить', callback_data='home')],
-            [InlineKeyboardButton(text='Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
+            [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
+            [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
+            [InlineKeyboardButton(text='🔄 Обновить', callback_data='home')],
+            [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
     )
 
@@ -29,9 +29,9 @@ async def process_home_action(event):
         if isinstance(event, types.Message):
             user = await get_or_create_user(session, event.from_user)
             message_to_edit = await event.answer(
-                f"Привет {user.username}!\n"
-                f"Ваш баланс: {user.balance} руб.\n"
-                f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
+                f"👋 Привет {user.username}!\n"
+                f"💰Баланс: {user.balance} руб.\n"
+                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
                 reply_markup=keyboard
             )
         else:  # CallbackQuery
@@ -61,8 +61,8 @@ async def home_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data == "configs")
 async def configs_callback(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Инструкция", url="https://ya.ru/")],  # TODO: вставить ссылку
-        [InlineKeyboardButton(text="Домой", callback_data='home')]
+        [InlineKeyboardButton(text="📕 Инструкция", url="https://ya.ru/")],  # TODO: вставить ссылку
+        [InlineKeyboardButton(text="🏠 Домой", callback_data='home')]
     ])
     async with async_session() as session:
         user = await get_or_create_user(session, callback.from_user)
@@ -85,7 +85,7 @@ async def configs_callback(callback: types.CallbackQuery):
 
         await callback.message.answer(
             f"🔑 Ваша VPN конфигурация:\n\n"
-            f"<code>{user.vpn_link}</code>\n\n"
+            f"```{user.vpn_link}```\n\n"
             f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}"
             "Нажмите на конфигурации для копирования",
             reply_markup=keyboard
@@ -93,14 +93,19 @@ async def configs_callback(callback: types.CallbackQuery):
         await callback.answer() 
 
 
-@router.callback_query(F.data == "update_sub")
-async def update_subscription(callback: types.CallbackQuery):
-    """Продлевает подписку за счет баланса"""
+async def process_update_sub_action(event):
+    """
+    Общая функция обработки update_sub действия
+    Работает как с Message, так и с CallbackQuery
+    """
     async with async_session() as session:
-        user = await get_or_create_user(session, callback.from_user)
-        
+        if isinstance(event, types.Message):
+            user = await get_or_create_user(session, event.from_user)
+        else: 
+            user = await get_or_create_user(session, event.from_user)
+
         success = await renew_subscription(session, user.id, 30)
-        
+
         if success:
             # Обновляем VPN конфигурацию
             vpn_manager = VPNManager(session)
@@ -108,51 +113,71 @@ async def update_subscription(callback: types.CallbackQuery):
                 user=user,
                 subscription_days=30
             )
-            
-            if vpn_link:
-                await callback.message.edit_text(
-                    "✅ Подписка успешно продлена!\n\n"
-                    f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                    f"Ваш баланс: {user.balance} руб.\n\n"
-                    f"Ваша VPN конфигурация:\n<code>{vpn_link}</code>",
-                    reply_markup=types.InlineKeyboardMarkup(
-                        inline_keyboard=[
-                            [
-                                types.InlineKeyboardButton(
-                                    text="Домой",
-                                    callback_data="home"
-                                )
-                            ]
-                        ]
-                    )
-                )
-            else:
-                await callback.message.edit_text(
-                    "❌ Ошибка при обновлении VPN конфигурации.\n"
-                    "Пожалуйста, свяжитесь с поддержкой."
-                )
-        else:
-            await callback.message.edit_text(
-                "❌ Недостаточно средств на балансе.\n"
-                f"Текущий баланс: {user.balance} руб.\n"
-                "Необходимо: 149 руб.\n\n"
-                "Пожалуйста, пополните баланс.",
-                reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[
-                        [
-                            types.InlineKeyboardButton(
-                                text="💳 Пополнить баланс",
-                                callback_data="payment"
-                            )
-                        ],
-                        [
-                            types.InlineKeyboardButton(
-                                text="Домой",
-                                callback_data="home"
-                            )
-                        ]
-                    ]
-                )
+
+            message_text = (
+                "✅ Подписка успешно продлена!\n\n"
+                f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                f"Ваш баланс: {user.balance} руб.\n\n"
+                f"Ваша VPN конфигурация:\n```{vpn_link}```"
+            ) if vpn_link else (
+                "❌ Ошибка при обновлении VPN конфигурации.\n"
+                "Пожалуйста, свяжитесь с поддержкой."
             )
-        
-        await callback.answer()
+
+            success_keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="🏠 Домой",
+                            callback_data="home"
+                        )
+                    ]
+                ]
+            )
+        else:
+            message_text = (
+                "❌ Недостаточно средств на балансе.\n"
+                f"💼Текущий баланс: {user.balance} руб.\n"
+                "💵 Необходимо: 179 руб.\n\n"
+                "⚠️ Пожалуйста, пополните баланс, чтобы продлить подписку."
+            )
+            
+            error_keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="💳 Пополнить баланс",
+                            callback_data="payment"
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text="🏠 Домой",
+                            callback_data="home"
+                        )
+                    ]
+                ]
+            )
+
+        # Отправляем или редактируем сообщение в зависимости от типа события
+        if isinstance(event, types.Message):
+            await event.answer(
+                message_text,
+                reply_markup=success_keyboard if success and vpn_link else error_keyboard
+            )
+        else:  # CallbackQuery
+            await event.message.edit_text(
+                message_text,
+                reply_markup=success_keyboard if success and vpn_link else error_keyboard
+            )
+            await event.answer()
+
+
+@router.message(Command("update_sub"))
+async def update_sub_command(message: types.Message):
+    await process_update_sub_action(message)
+
+
+@router.callback_query(F.data == "update_sub")
+async def update_subscription(callback: types.CallbackQuery):
+    await process_update_sub_action(callback)

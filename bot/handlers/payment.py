@@ -1,6 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.types import LabeledPrice
-from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT
+from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE
 from fastapi import FastAPI, Request, Response
 from db.database import async_session
 from db.service.payment_service import create_payment, get_user_payments, get_payment_by_id
@@ -18,9 +18,6 @@ logger = logging.getLogger(__name__)
 
 router = Router()
 webhook_router = APIRouter()
-
-# Стоимость VPN в копейках (150 рублей = 15000 копеек)
-VPN_PRICE = 149
 
 
 class MockUser:
@@ -57,7 +54,7 @@ async def process_payment(callback: types.CallbackQuery, bot):
                 ],
                 [
                     types.InlineKeyboardButton(
-                        text="Домой",
+                        text="🏠 Домой",
                         callback_data='home'
                     )
                 ]
@@ -66,10 +63,12 @@ async def process_payment(callback: types.CallbackQuery, bot):
         )
 
         await callback.message.edit_text(
-            f"💳 Платеж создан! Оплата VPN на 1 месяц\n\n"
-            f"Стоимость: {VPN_PRICE} рублей\n\n"
-            "1. Перейдите по ссылке для оплаты\n"
-            "2. После оплаты нажмите 'Проверить оплату'",
+            f"💳 Платеж создан!\n"
+            "🌐 Оплата VPN на 1 месяц\n"
+            f"💰 Сумма к оплате: {VPN_PRICE} рублей\n\n"
+            "📌 Что нужно сделать:\n"
+            "1️⃣ Перейдите по ссылке ниже для оплаты\n"
+            "2️⃣ После оплаты нажмите «✅ Проверить оплату»",
             reply_markup=keyboard
         )
         await callback.answer()
@@ -101,7 +100,7 @@ async def check_payment(callback: types.CallbackQuery):
                     inline_keyboard=[
                         [
                             types.InlineKeyboardButton(
-                                text="Домой",
+                                text="🏠 Домой",
                                 callback_data="home"
                             )
                         ]

@@ -49,7 +49,7 @@ async def check_expired_subscriptions():
                 await bot.send_message(
                     user.telegram_id,
                     "⚠️ Ваша подписка истекла!\n\n"
-                    "Для продления подписки используйте команду /payment"
+                    "Для продления подписки используйте команду /update_sub"
                 )
             except Exception as e:
                 print(f"Error sending message to user {user.telegram_id}: {e}")
@@ -61,51 +61,39 @@ async def check_expired_subscriptions():
         await session.commit()
 
 async def check_upcoming_expirations():
-    """Проверяет подписки, которые скоро истекают"""
+    """Проверяет подписки, истекающие через 1 или 2 дня и уведомляет пользователей."""
     async with async_session() as session:
         now = datetime.utcnow()
-        
-        # Проверяем подписки, которые истекают через 2 дня
-        two_days_expiry = now + timedelta(days=2)
-        two_days_ago = now - timedelta(days=28)  # 30 - 2 = 28
-        
+
+        # Временные границы
+        tomorrow = now + timedelta(days=1)
+        day_after_tomorrow = now + timedelta(days=2)
+
         stmt = select(User).where(
-            User.subscription_start.between(two_days_ago, two_days_expiry),
-            User.is_active == True
+            User.is_active == True,
+            User.subscription_end.in_([tomorrow.date(), day_after_tomorrow.date()])
         )
+
         result = await session.execute(stmt)
-        two_days_users = result.scalars().all()
-        
-        # Отправляем уведомления за 2 дня
-        for user in two_days_users:
-            try:
-                await bot.send_message(
-                    user.telegram_id,
+        users = result.scalars().all()
+
+        for user in users:
+            days_left = (user.subscription_end.date() - now.date()).days
+            if days_left == 2:
+                message = (
                     "⚠️ Ваша подписка истекает через 2 дня!\n\n"
-                    "Для продления подписки используйте команду /payment"
+                    "Для продления подписки используйте команду /update_sub"
                 )
-            except Exception as e:
-                print(f"Error sending message to user {user.telegram_id}: {e}")
-        
-        # Проверяем подписки, которые истекают через 1 день
-        one_day_expiry = now + timedelta(days=1)
-        one_day_ago = now - timedelta(days=29)  # 30 - 1 = 29
-        
-        stmt = select(User).where(
-            User.subscription_start.between(one_day_ago, one_day_expiry),
-            User.is_active == True
-        )
-        result = await session.execute(stmt)
-        one_day_users = result.scalars().all()
-        
-        # Отправляем уведомления за 1 день
-        for user in one_day_users:
-            try:
-                await bot.send_message(
-                    user.telegram_id,
+            elif days_left == 1:
+                message = (
                     "⚠️ Ваша подписка истекает завтра!\n\n"
-                    "Для продления подписки используйте команду /payment"
+                    "Для продления подписки используйте команду /update_sub"
                 )
+            else:
+                continue  # На всякий случай
+
+            try:
+                await bot.send_message(user.telegram_id, message)
             except Exception as e:
                 print(f"Error sending message to user {user.telegram_id}: {e}")
 

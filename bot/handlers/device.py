@@ -29,11 +29,11 @@ async def process_vpn_config(
 
         if instruction_url:
             keyboard_buttons.append([
-                InlineKeyboardButton(text="Инструкция", url=instruction_url)
+                InlineKeyboardButton(text="📕 Инструкция", url=instruction_url)
             ])
 
         keyboard_buttons.append([
-            InlineKeyboardButton(text="Домой", callback_data="home")
+            InlineKeyboardButton(text="🏠 Домой", callback_data="home")
         ])
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -41,7 +41,7 @@ async def process_vpn_config(
         if user.vpn_link:
             await callback.message.edit_text(
                 f"🔑 Ваша VPN конфигурация для {platform}:\n\n"
-                f"<code>{user.vpn_link}</code>\n\n"
+                f"```{user.vpn_link}```\n\n"
                 f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
                 "Нажмите на кофигурацию для копирования",
                 reply_markup=keyboard
@@ -57,10 +57,10 @@ async def process_vpn_config(
 
         if vpn_link:
             await callback.message.edit_text(
-                f"🔑 Ваша VPN конфигурация для {platform}:\n\n"
-                f"<code>{vpn_link}</code>\n\n"
-                f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                "Спасибо за регистрацию! Вам предоставлен пробный период на 30 дней.",
+                f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией:\n\n"
+                f"```{vpn_link}```\n\n"
+                f"🎁 Вы получили бесплатный пробный период на 30 дней!\n"
+                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n",
                 reply_markup=keyboard
             )
         else:
