@@ -37,9 +37,9 @@ async def process_home_action(event):
         else:  # CallbackQuery
             user = await get_or_create_user(session, event.from_user)
             await event.message.edit_text(
-                f"Привет {user.username}!\n"
-                f"Ваш баланс: {user.balance} руб.\n"
-                f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
+                f"👋Привет {user.username}!\n"
+                f"💰Ваш баланс: {user.balance} руб.\n"
+                f"📅Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
                 reply_markup=keyboard
             )
 
