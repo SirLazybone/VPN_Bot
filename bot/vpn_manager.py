@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import User
 from bot.vpn_api import VPNClient
 from sheets.sheets import update_user_by_telegram_id
+from config.config import VPN_PRICE
 import asyncio
 
 
@@ -32,7 +33,7 @@ class VPNManager:
         vpn_link = vpn_config['links'][0]
 
         # Обновляем данные пользователя
-        user.balance -= 149
+        user.balance -= VPN_PRICE
         user.vpn_link = vpn_link
         user.subscription_start = datetime.utcnow()
         user.subscription_end = datetime.utcnow() + timedelta(days=subscription_days)
