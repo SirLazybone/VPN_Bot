@@ -3,6 +3,7 @@ from db.models import User
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from config.config import VPN_PRICE
+from sheets.sheets import add_user_to_sheets, update_user_by_telegram_id
 
 async def is_user_exist(session: AsyncSession, username) -> bool:
     result = await session.execute(select(User).where(User.username == username))
@@ -19,16 +20,18 @@ async def get_or_create_user(session, user_data):
         telegram_id=user_data.id,
         username=user_data.username,
         balance=VPN_PRICE,
-        is_active=True
+        is_active=False
     )
     session.add(new_user)
     await session.commit()
+    await add_user_to_sheets(new_user)  # добавляем пользователя в google sheets
     return new_user
 
 async def get_user_by_username(session: AsyncSession, username: str) -> User:
     """Находит пользователя по username"""
     result = await session.execute(select(User).where(User.username == username))
     return result.scalar_one_or_none()
+
 
 async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> bool:
     result = await session.execute(select(User).where(User.id == user_id))
@@ -53,4 +56,6 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> 
     user.is_active = True
 
     await session.commit()
+
+    await update_user_by_telegram_id(user.telegram_id, user)
     return True

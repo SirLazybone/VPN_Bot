@@ -34,3 +34,7 @@ typing_extensions==4.13.2
 tzlocal==5.3.1
 uvicorn==0.27.1
 yarl==1.19.0
+google-api-python-client
+oauth2client
+gspread
+httplib2

@@ -47,6 +47,8 @@ async def cmd_start(message: types.Message, bot):
 @router.callback_query(F.data == "check_subscription")
 async def check_subscription_callback(callback: types.CallbackQuery, bot):
     if await check_subscription(callback.from_user.id, bot):
+        async with async_session() as session:
+            user = await get_or_create_user(session, callback.from_user)
 
         keyboard2 = types.InlineKeyboardMarkup(
             inline_keyboard=[

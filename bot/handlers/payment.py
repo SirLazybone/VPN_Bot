@@ -11,6 +11,8 @@ import json
 from datetime import datetime
 import traceback
 import logging
+from sheets.sheets import update_payment_by_nickname, update_user_by_telegram_id
+
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -171,6 +173,9 @@ async def donate_webhook(request: Request):
                 user.balance += float(data.get('sum'))
 
                 await session.commit()
+
+                await update_user_by_telegram_id(user.telegram_id, user)
+                await update_payment_by_nickname(nickname, payment)
 
                 logger.info("Webhook processing completed successfully")
                 return Response(content="OK", status_code=200)
