@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import User
 from bot.vpn_api import VPNClient
 from sheets.sheets import update_user_by_telegram_id
+import asyncio
 
 
 class VPNManager:
@@ -38,7 +39,7 @@ class VPNManager:
         user.is_active = True
 
         await self.db.commit()
-        await update_user_by_telegram_id(user.telegram_id, user)  # обновляем в google sheets
+        await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
 
         return vpn_link
 

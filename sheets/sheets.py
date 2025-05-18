@@ -60,7 +60,7 @@ async def update_user_by_telegram_id(telegram_id, user: User):
         if str(record['telegram_id']) == str(telegram_id):
             sheet_users.update([[str(user.balance)]],f'D{idx}')
             sheet_users.update([[str(user.subscription_start)]], f'F{idx}')
-            sheet_users.update([[str(user.subscription_end)]] ,f'G{idx}')
+            sheet_users.update([[str(user.subscription_end)]], f'G{idx}')
             sheet_users.update([[str(user.is_active)]], f'H{idx}')
             sheet_users.update([[str(user.vpn_link)]], f'I{idx}')
 

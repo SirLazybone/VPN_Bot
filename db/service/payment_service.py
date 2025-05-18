@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from db.models import User, Payment
 from sheets.sheets import add_payment_to_sheets
+import asyncio
 
 async def create_payment(
     session: AsyncSession,
@@ -21,7 +22,7 @@ async def create_payment(
     )
     session.add(payment)
     await session.commit()
-    await add_payment_to_sheets(payment)  # добавляем payment в google sheets
+    await asyncio.gather(add_payment_to_sheets(payment))  # добавляем payment в google sheets
     return payment
 
 

@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from config.config import VPN_PRICE
 from sheets.sheets import add_user_to_sheets, update_user_by_telegram_id
+import asyncio
+
 
 async def is_user_exist(session: AsyncSession, username) -> bool:
     result = await session.execute(select(User).where(User.username == username))
@@ -24,7 +26,7 @@ async def get_or_create_user(session, user_data):
     )
     session.add(new_user)
     await session.commit()
-    await add_user_to_sheets(new_user)  # добавляем пользователя в google sheets
+    await asyncio.gather(add_user_to_sheets(new_user))  # добавляем пользователя в google sheets
     return new_user
 
 async def get_user_by_username(session: AsyncSession, username: str) -> User:
@@ -56,6 +58,5 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> 
     user.is_active = True
 
     await session.commit()
-
-    await update_user_by_telegram_id(user.telegram_id, user)
+    await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
     return True

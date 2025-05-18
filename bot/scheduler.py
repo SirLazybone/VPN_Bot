@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from aiogram import Bot
 from config.config import BOT_TOKEN
 from sheets.sheets import update_user_by_telegram_id
+import asyncio
 
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler()
@@ -60,7 +61,7 @@ async def check_expired_subscriptions():
             await session.execute(stmt)
         
         await session.commit()
-        await update_user_by_telegram_id(user.telegram_id, user)
+        await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
 
 async def check_upcoming_expirations():
     """Проверяет подписки, истекающие через 1 или 2 дня и уведомляет пользователей."""

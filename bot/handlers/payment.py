@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 import traceback
 import logging
+import asyncio
 from sheets.sheets import update_payment_by_nickname, update_user_by_telegram_id
 
 
@@ -174,8 +175,8 @@ async def donate_webhook(request: Request):
 
                 await session.commit()
 
-                await update_user_by_telegram_id(user.telegram_id, user)
-                await update_payment_by_nickname(nickname, payment)
+                await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
+                await asyncio.gather(update_payment_by_nickname(nickname, payment))
 
                 logger.info("Webhook processing completed successfully")
                 return Response(content="OK", status_code=200)
