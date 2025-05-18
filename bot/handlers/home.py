@@ -61,7 +61,7 @@ async def home_callback(callback: types.CallbackQuery):
 @router.callback_query(F.data == "configs")
 async def configs_callback(callback: types.CallbackQuery):
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📕 Инструкция", url="https://ya.ru/")],  # TODO: вставить ссылку
+        [InlineKeyboardButton(text="📕 Инструкция", url="https://teletype.in/@meowadmin/Z4Z0lCMlWWr")],
         [InlineKeyboardButton(text="🏠 Домой", callback_data='home')]
     ])
     async with async_session() as session:

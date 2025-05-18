@@ -82,7 +82,7 @@ async def ios_config(callback: types.CallbackQuery):
     await process_vpn_config(
         callback,
         platform="iOS",
-        instruction_url="https://ya.ru/"  # TODO: вставить ссылку на инструкцию для iOS
+        instruction_url="https://teletype.in/@meowadmin/Z4Z0lCMlWWr"
     )
 
 
@@ -91,7 +91,7 @@ async def android_config(callback: types.CallbackQuery):
     await process_vpn_config(
         callback,
         platform="Android",
-        instruction_url="https://ya.ru/"  # TODO: вставить ссылку на инструкцию для Android
+        instruction_url="https://teletype.in/@meowadmin/Z4Z0lCMlWWr"
     )
 
 
@@ -100,7 +100,7 @@ async def windows_config(callback: types.CallbackQuery):
     await process_vpn_config(
         callback,
         platform="Windows",
-        instruction_url="https://ya.ru/"  # TODO: вставить ссылку на инструкцию для Android
+        instruction_url="https://teletype.in/@meowadmin/Z4Z0lCMlWWr"
     )
 
 
@@ -109,6 +109,6 @@ async def windows_config(callback: types.CallbackQuery):
     await process_vpn_config(
         callback,
         platform="MacOS",
-        instruction_url="https://ya.ru/"  # TODO: вставить ссылку на инструкцию для Android
+        instruction_url="https://teletype.in/@meowadmin/Z4Z0lCMlWWr"
     )
 
