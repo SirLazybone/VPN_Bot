@@ -30,4 +30,6 @@ ENV/
 
 # System
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+sheets/creds.json
