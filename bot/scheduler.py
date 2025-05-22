@@ -5,6 +5,7 @@ from db.models import User
 from sqlalchemy import select, update
 from datetime import datetime, timedelta
 from aiogram import Bot
+from aiogram import types
 from config.config import BOT_TOKEN
 from sheets.sheets import update_user_by_telegram_id
 import asyncio
@@ -50,8 +51,11 @@ async def check_expired_subscriptions():
             try:
                 await bot.send_message(
                     user.telegram_id,
-                    "⚠️ Ваша подписка истекла!\n\n"
-                    "Для продления подписки используйте команду /update_sub"
+                    "⚠️ Ваша подписка истекла!\n\n",
+                    reply_markup=types.InlineKeyboardMarkup(inline_keyboard=
+                                                            [
+                                                                [types.InlineKeyboardButton(text="Продлить подписку", callback_data='update_sub')]
+                                                            ])
                 )
             except Exception as e:
                 print(f"Error sending message to user {user.telegram_id}: {e}")
@@ -85,18 +89,19 @@ async def check_upcoming_expirations():
             if days_left == 2:
                 message = (
                     "⚠️ Ваша подписка истекает через 2 дня!\n\n"
-                    "Для продления подписки используйте команду /update_sub"
                 )
             elif days_left == 1:
                 message = (
                     "⚠️ Ваша подписка истекает завтра!\n\n"
-                    "Для продления подписки используйте команду /update_sub"
                 )
             else:
                 continue  # На всякий случай
 
             try:
-                await bot.send_message(user.telegram_id, message)
+                await bot.send_message(user.telegram_id, message, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=
+                                                            [
+                                                                [types.InlineKeyboardButton(text="Продлить подписку", callback_data='update_sub')]
+                                                            ]))
             except Exception as e:
                 print(f"Error sending message to user {user.telegram_id}: {e}")
 

@@ -3,7 +3,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from db.database import async_session
 from db.service.user_service import get_or_create_user
-from config.config import TECH_SUPPORT_USERNAME
+from config.config import TECH_SUPPORT_USERNAME, VPN_PRICE
 from datetime import datetime
 from db.service.user_service import renew_subscription
 from bot.vpn_manager import VPNManager
@@ -29,8 +29,7 @@ async def process_home_action(event):
         if isinstance(event, types.Message):
             user = await get_or_create_user(session, event.from_user)
             message_to_edit = await event.answer(
-                f"👋 Привет {user.username}!\n"
-                f"💰Баланс: {user.balance} руб.\n"
+                f"👋 Привет {user.username}!\n\n"
                 f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
                 reply_markup=keyboard
             )
@@ -140,8 +139,7 @@ async def process_update_sub_action(event):
         else:
             message_text = (
                 "❌ Недостаточно средств на балансе.\n"
-                f"💼Текущий баланс: {user.balance} руб.\n"
-                "💵 Необходимо: 179 руб.\n\n"
+                f"💵 Необходимо: {VPN_PRICE} руб.\n\n"
                 "⚠️ Пожалуйста, пополните баланс, чтобы продлить подписку."
             )
             
