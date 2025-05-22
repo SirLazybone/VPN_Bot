@@ -8,7 +8,7 @@ from db.service.user_service import get_or_create_user, get_user_by_username
 from bot.vpn_manager import VPNManager
 from fastapi import APIRouter, Request
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import traceback
 import logging
 import asyncio
@@ -66,7 +66,7 @@ async def process_payment(callback: types.CallbackQuery, bot):
         )
         await callback.message.edit_text(
             f"💳 Платеж создан!\n\n"
-            f"❗️ВАШ НИКНЕЙМ: ```{user.username}```\n\n"
+            f"❗️ВАШ НИКНЕЙМ: \n```{user.username}```\n\n"
             f"📌 Что нужно сделать:\n"
             "1️⃣ Скопируйте ваш ник выше\n"
             "2️⃣ Перейдите по ссылке «Оплатить»\n"
@@ -88,6 +88,14 @@ async def check_payment(callback: types.CallbackQuery):
     async with async_session() as session:
         user = await get_or_create_user(session, callback.from_user)
         payment = await get_payment_by_id(session, id)
+
+        now = datetime.utcnow()
+        time_limit = payment.created_at + timedelta(minutes=10)
+
+        if now >= time_limit:
+            await callback.answer("Что-то пошло не так...\n"
+                                  "Если вы оплатили, свяжитесь с поддержкой\n"
+                                  "Если нет, то создайте новый платёж: \"Пополнить баланс\"", show_alert=True)
 
         if not payment:
             await callback.answer("Платёж не создался, попробуйте заново", show_alert=True)

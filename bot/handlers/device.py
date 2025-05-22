@@ -67,8 +67,10 @@ async def process_vpn_config(
         else:
             await callback.message.edit_text(
                 "❌ Ошибка при создании VPN конфигурации.\n"
-                "Пожалуйста, свяжитесь с поддержкой.",
+                "Попробуйте чуть позже в разделе \"Мои ключи\""
+                "Если не получится, свяжитесь с поддержкой.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🏠 Домой", callback_data='home')],
                     [InlineKeyboardButton(text="Техподдержка", url=f'https://t.me/{TECH_SUPPORT_USERNAME}')]
                 ])
             )

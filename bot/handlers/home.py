@@ -66,17 +66,39 @@ async def configs_callback(callback: types.CallbackQuery):
         user = await get_or_create_user(session, callback.from_user)
         
         if not user.vpn_link:
-            await callback.message.answer(
-                "❌ У вас ещё нет VPN конфигурации.\n"
-                "Пожалуйста, оплатите подписку для получения конфигурации."
+            vpn_manager = VPNManager(session)
+            vpn_link = await vpn_manager.create_vpn_config(
+                user=user,
+                subscription_days=30
             )
+            if not vpn_link:
+                await callback.message.edit_text(
+                    "❌ Ошибка при создании VPN конфигурации.\n"
+                    "Попробуйте чуть позже в разделе \"Мои ключи\""
+                    "Если не получится, свяжитесь с поддержкой.",
+                    reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                        [InlineKeyboardButton(text="🏠 Домой", callback_data='home')],
+                        [InlineKeyboardButton(text="Техподдержка", url=f'https://t.me/{TECH_SUPPORT_USERNAME}')]
+                    ])
+                )
+            else:
+                await callback.message.edit_text(
+                    f"```\n{user.vpn_link}\n```\n\n"
+                    f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
+                    f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
+                    reply_markup=keyboard,
+                    parse_mode="Markdown"
+                )
             await callback.answer()
             return
 
         if not user.is_active or not user.subscription_end or user.subscription_end < datetime.utcnow():
             await callback.message.answer(
                 "❌ Ваша подписка неактивна или истекла.\n"
-                "Пожалуйста, продлите подписку для использования VPN."
+                "Пожалуйста, продлите подписку для использования VPN.",
+                reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text='Продлить подписку', callback_data='update_sub')]
+                ])
             )
             await callback.answer()
             return
