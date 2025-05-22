@@ -42,7 +42,7 @@ async def process_vpn_config(
             await callback.message.edit_text(
                 f"🔑 Ваша VPN конфигурация:\n\n"
                 f"```\n{user.vpn_link}\n```\n\n"
-                f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n"
+                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n"
                 "Нажмите на конфигурации для копирования",
                 reply_markup=keyboard,
                 parse_mode="Markdown"
@@ -60,14 +60,14 @@ async def process_vpn_config(
             await callback.message.edit_text(
                 f"```\n{user.vpn_link}\n```\n\n"
                 f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
-                f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
+                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
                 reply_markup=keyboard,
                 parse_mode="Markdown"
             )
         else:
             await callback.message.edit_text(
                 "❌ Ошибка при создании VPN конфигурации.\n"
-                "Попробуйте чуть позже в разделе \"Мои ключи\""
+                "Попробуйте чуть позже в разделе \"Мои ключи\"\n"
                 "Если не получится, свяжитесь с поддержкой.",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🏠 Домой", callback_data='home')],

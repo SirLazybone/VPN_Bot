@@ -19,7 +19,7 @@ async def process_home_action(event):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
-            [InlineKeyboardButton(text='🔄 Обновить', callback_data='home')],
+            [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
     )
@@ -55,6 +55,24 @@ async def home_command(message: types.Message):
 async def home_callback(callback: types.CallbackQuery):
     await process_home_action(callback)
 
+@router.callback_query(F.data == 'home_new')
+async def new_home_message(callback: types.CallbackQuery):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
+            [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
+            [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
+            [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
+        ]
+    )
+    async with async_session() as session:
+        user = await get_or_create_user(session, callback.from_user)
+        await callback.message.answer(
+            f"👋 Привет {user.username}!\n\n"
+            f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
+            reply_markup=keyboard
+        )
+
 
 @router.callback_query(F.data == "configs")
 async def configs_callback(callback: types.CallbackQuery):
@@ -74,7 +92,7 @@ async def configs_callback(callback: types.CallbackQuery):
             if not vpn_link:
                 await callback.message.edit_text(
                     "❌ Ошибка при создании VPN конфигурации.\n"
-                    "Попробуйте чуть позже в разделе \"Мои ключи\""
+                    "Попробуйте чуть позже в разделе \"Мои ключи\"\n"
                     "Если не получится, свяжитесь с поддержкой.",
                     reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                         [InlineKeyboardButton(text="🏠 Домой", callback_data='home')],
@@ -85,7 +103,7 @@ async def configs_callback(callback: types.CallbackQuery):
                 await callback.message.edit_text(
                     f"```\n{user.vpn_link}\n```\n\n"
                     f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
-                    f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
+                    f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
                     reply_markup=keyboard,
                     parse_mode="Markdown"
                 )
@@ -103,11 +121,10 @@ async def configs_callback(callback: types.CallbackQuery):
             await callback.answer()
             return
 
-        await callback.message.answer(
-            f"🔑 Ваша VPN конфигурация:\n\n"
+        await callback.message.edit_text(
             f"```\n{user.vpn_link}\n```\n\n"
-            f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n"
-            "Нажмите на конфигурации для копирования",
+            f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
+            f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
             reply_markup=keyboard,
             parse_mode="Markdown"
         )

@@ -14,8 +14,9 @@ router = Router()
 async def cmd_start(message: types.Message, bot):
     async with async_session() as session:
         if await is_user_exist(session, message.from_user.username):
-            await process_home_action(message)
-            return
+            if await check_subscription(message.from_user.id, bot):
+                await process_home_action(message)
+                return
 
     keyboard = types.InlineKeyboardMarkup(
         inline_keyboard=[
