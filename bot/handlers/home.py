@@ -36,9 +36,8 @@ async def process_home_action(event):
         else:  # CallbackQuery
             user = await get_or_create_user(session, event.from_user)
             await event.message.edit_text(
-                f"👋Привет {user.username}!\n"
-                f"💰Ваш баланс: {user.balance} руб.\n"
-                f"📅Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
+                f"👋 Привет {user.username}!\n\n"
+                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
                 reply_markup=keyboard
             )
 
@@ -117,7 +116,6 @@ async def process_update_sub_action(event):
             message_text = (
                 "✅ Подписка успешно продлена!\n\n"
                 f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                f"Ваш баланс: {user.balance} руб.\n\n"
                 f"Ваша VPN конфигурация:\n\n"
                 f"```\n{user.vpn_link}\n```\n\n",
 

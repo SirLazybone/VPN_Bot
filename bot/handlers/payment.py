@@ -99,8 +99,7 @@ async def check_payment(callback: types.CallbackQuery):
 
         if payment.status == 'completed':
             await callback.message.edit_text(
-                "✅ Оплата подтверждена!\n\n"
-                f"Ваш баланс: {user.balance}\n\n",
+                "✅ Оплата подтверждена!\n\n",
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
