@@ -166,9 +166,9 @@ class VPNClient:
 
     async def delete_user(self, username: str) -> Optional[Dict[str, Any]]:
         try:
-            async with httpx.AsyncClient as client:
-                response = await client.post(
-                    f"{self.base_url}/api/user/delete/{username}",
+            async with httpx.AsyncClient() as client:
+                response = await client.delete(
+                    url=f"{self.base_url}/api/user/{username}",
                     headers=self.headers,
                 )
                 response.raise_for_status()

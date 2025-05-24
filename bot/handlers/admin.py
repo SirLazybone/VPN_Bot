@@ -5,7 +5,7 @@ from sqlalchemy import select, delete
 from datetime import datetime, timezone
 from config.config import ADMIN_NAME
 from db.database import async_session
-from db.models import User
+from db.models import User, Payment
 from bot.handlers.home import process_home_action
 from bot.vpn_manager import VPNManager
 from sheets.sheets import update_user_by_telegram_id
@@ -518,6 +518,7 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
         username = user.username
         
         # Delete user
+        await session.execute(delete(Payment).where(Payment.nickname == username))
         await session.execute(delete(User).where(User.id == user_id))
         vpn_manager = VPNManager(session)
         text = ""
