@@ -56,7 +56,8 @@ class VPNManager:
     async def renew_subscription(
             self,
             user: User,
-            subscription_days: int = 30
+            subscription_days: Optional[int] = None,
+            new_expire_ts: Optional[int] = None
     ) -> bool:
         """
         Renew user's VPN subscription
@@ -73,7 +74,11 @@ class VPNManager:
         else:
             base_time = datetime.utcfromtimestamp(old_expire_ts)
 
-        new_expire = int((base_time + timedelta(days=subscription_days)).timestamp())
+        if new_expire_ts:
+            new_expire = new_expire_ts
+        else:
+            new_expire = int((base_time + timedelta(days=subscription_days)).timestamp())
+
         # Update VPN configuration
         vpn_config = await self.vpn_client.update_vpn_config(
             username=user.username,
@@ -85,3 +90,10 @@ class VPNManager:
             return False
 
         return True
+
+    async def delete_user(self, username: str) -> bool:
+        response = self.vpn_client.delete_user(username=username)
+        if response is not None:
+            return True
+        else:
+            return False

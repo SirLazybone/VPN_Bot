@@ -12,3 +12,4 @@ TECH_SUPPORT_USERNAME = os.getenv("TECH_SUPPORT_USERNAME")  # Username подд�
 API_TOKEN = os.getenv("API_TOKEN")
 API_URL = os.getenv("API_URL")
 VPN_PRICE = float(os.getenv("VPN_PRICE"))
+ADMIN_NAME = os.getenv("ADMIN_NAME")

@@ -22,7 +22,7 @@ async def cmd_start(message: types.Message, bot):
         inline_keyboard=[
             [
                 types.InlineKeyboardButton(
-                    text="meow_shield",
+                    text="Наш канал",
                     url=f"https://t.me/{CHANNEL_USERNAME}"
                 )
             ],
@@ -93,7 +93,7 @@ async def check_subscription_callback(callback: types.CallbackQuery, bot):
         await callback.message.edit_text(
             "🎉 Поздравляем с регистрацией!\n"
             "💰 Вы получили месяц бесплатного использования!\n\n"
-            "👇 Выберите свое устройство и начните пользоваться VPN уже сейчас",
+            "👇 Выберите свое устройство и начните пользоваться VPN",
             reply_markup=keyboard2
         )
     else:

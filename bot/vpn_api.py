@@ -154,12 +154,25 @@ class VPNClient:
             print(f"Error updating VPN config: {e}")
             return None
 
-    async def activate_user(self, username: str) -> Optional[Dict[str, Any]]:
-        """
-        Convenience method to activate a user
-        """
-        return await self.update_vpn_config(
-            username=username,
-            status="active",
-            expire=30
-        )
+    # async def activate_user(self, username: str) -> Optional[Dict[str, Any]]:
+    #     """
+    #     Convenience method to activate a user
+    #     """
+    #     return await self.update_vpn_config(
+    #         username=username,
+    #         status="active",
+    #         expire=30
+    #     )
+
+    async def delete_user(self, username: str) -> Optional[Dict[str, Any]]:
+        try:
+            async with httpx.AsyncClient as client:
+                response = await client.post(
+                    f"{self.base_url}/api/user/delete/{username}",
+                    headers=self.headers,
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPError as e:
+            print(f"Error deleting VPN config: {e}")
+            return None
