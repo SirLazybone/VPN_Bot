@@ -71,11 +71,34 @@ async def list_users(callback: types.CallbackQuery):
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
+    # Redirect to first page
+    await list_users_page(callback, page=1)
+
+@router.callback_query(F.data.startswith("admin_list_users_page_"))
+async def list_users_page(callback: types.CallbackQuery, page: int = None):
+    if callback.from_user.username != ADMIN_NAME:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    # Extract page number from callback data if not provided
+    if page is None:
+        page = int(callback.data.split("_")[4])
+    
+    users_per_page = 10
+    offset = (page - 1) * users_per_page
+    
     async with async_session() as session:
-        result = await session.execute(select(User).order_by(User.id))
+        # Get total count of users
+        count_result = await session.execute(select(User))
+        total_users = len(count_result.scalars().all())
+        
+        # Get users for current page
+        result = await session.execute(
+            select(User).order_by(User.id).offset(offset).limit(users_per_page)
+        )
         users = result.scalars().all()
         
-        if not users:
+        if not users and page == 1:
             await callback.message.edit_text(
                 "Пользователей не найдено",
                 reply_markup=types.InlineKeyboardMarkup(
@@ -85,18 +108,59 @@ async def list_users(callback: types.CallbackQuery):
             await callback.answer()
             return
         
-        # Create paginated list of users
-        text = "📋 Список пользователей:\n\n"
+        # Calculate total pages
+        total_pages = (total_users + users_per_page - 1) // users_per_page
+        
+        # Create text with page info
+        text = f"📋 Список пользователей (страница {page}/{total_pages}):\n"
+        text += f"Всего пользователей: {total_users}\n\n"
+        
+        # Create keyboard with users in 2 columns
         keyboard = []
         
-        for user in users:
-            status = "✅ Активен" if user.is_active else "❌ Неактивен"
-            # text += f"ID: {user.id} | TG ID: {user.telegram_id} | @{user.username} | {status}\n"
-            keyboard.append([types.InlineKeyboardButton(
-                text=f"👤 {user.username} ({status})",
-                callback_data=f"admin_user_{user.id}"
-            )])
+        # Add users in rows of 2
+        for i in range(0, len(users), 2):
+            row = []
+            # First user in row
+            user1 = users[i]
+            status1 = "✅" if user1.is_active else "❌"
+            row.append(types.InlineKeyboardButton(
+                text=f"{status1} {user1.username or f'ID{user1.id}'}",
+                callback_data=f"admin_user_{user1.id}_{page}"
+            ))
+            
+            # Second user in row (if exists)
+            if i + 1 < len(users):
+                user2 = users[i + 1]
+                status2 = "✅" if user2.is_active else "❌"
+                row.append(types.InlineKeyboardButton(
+                    text=f"{status2} {user2.username or f'ID{user2.id}'}",
+                    callback_data=f"admin_user_{user2.id}_{page}"
+                ))
+            
+            keyboard.append(row)
         
+        # Add navigation buttons
+        navigation_row = []
+        
+        # Previous page button
+        if page > 1:
+            navigation_row.append(types.InlineKeyboardButton(
+                text="◀️ Пред.",
+                callback_data=f"admin_list_users_page_{page - 1}"
+            ))
+        
+        # Next page button
+        if page < total_pages:
+            navigation_row.append(types.InlineKeyboardButton(
+                text="След. ▶️",
+                callback_data=f"admin_list_users_page_{page + 1}"
+            ))
+        
+        if navigation_row:
+            keyboard.append(navigation_row)
+        
+        # Add back button
         keyboard.append([types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")])
         
         await callback.message.edit_text(
@@ -111,7 +175,10 @@ async def show_user_details(callback: types.CallbackQuery):
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
-    user_id = int(callback.data.split("_")[2])
+    # Extract user_id and optional page from callback data
+    parts = callback.data.split("_")
+    user_id = int(parts[2])
+    page = int(parts[3]) if len(parts) > 3 else 1
     
     async with async_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
@@ -121,7 +188,7 @@ async def show_user_details(callback: types.CallbackQuery):
             await callback.message.edit_text(
                 "Пользователь не найден",
                 reply_markup=types.InlineKeyboardMarkup(
-                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_list_users")]]
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data=f"admin_list_users_page_{page}")]]
                 )
             )
             await callback.answer()
@@ -143,16 +210,16 @@ async def show_user_details(callback: types.CallbackQuery):
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
-                    types.InlineKeyboardButton(text="💰 Изменить баланс", callback_data=f"admin_edit_balance_{user.id}")
+                    types.InlineKeyboardButton(text="💰 Изменить баланс", callback_data=f"admin_edit_balance_{user.id}_{page}")
                 ],
                 [
-                    types.InlineKeyboardButton(text="📅 Изменить подписку", callback_data=f"admin_edit_subscription_{user.id}")
+                    types.InlineKeyboardButton(text="📅 Изменить подписку", callback_data=f"admin_edit_subscription_{user.id}_{page}")
                 ],
                 [
-                    types.InlineKeyboardButton(text="❌ Удалить пользователя", callback_data=f"admin_delete_user_{user.id}")
+                    types.InlineKeyboardButton(text="❌ Удалить пользователя", callback_data=f"admin_delete_user_{user.id}_{page}")
                 ],
                 [
-                    types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_list_users")
+                    types.InlineKeyboardButton(text="◀️ Назад", callback_data=f"admin_list_users_page_{page}")
                 ]
             ]
         )
@@ -237,14 +304,17 @@ async def edit_balance_start(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
-    user_id = int(callback.data.split("_")[3])
-    await state.update_data(user_id=user_id)
+    parts = callback.data.split("_")
+    user_id = int(parts[3])
+    page = int(parts[4]) if len(parts) > 4 else 1
+    
+    await state.update_data(user_id=user_id, page=page)
     await state.set_state(AdminStates.edit_balance)
     
     await callback.message.edit_text(
         "Введите новый баланс пользователя:",
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data=f"admin_user_{user_id}")]]
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data=f"admin_user_{user_id}_{page}")]]
         )
     )
     await callback.answer()
@@ -267,6 +337,7 @@ async def edit_balance_process(message: types.Message, state: FSMContext):
     
     data = await state.get_data()
     user_id = data.get("user_id")
+    page = data.get("page", 1)
     
     async with async_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
@@ -291,7 +362,7 @@ async def edit_balance_process(message: types.Message, state: FSMContext):
         await message.answer(
             f"Баланс пользователя @{user.username} успешно изменен на {new_balance} руб.",
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К пользователю", callback_data=f"admin_user_{user_id}")]]
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К пользователю", callback_data=f"admin_user_{user_id}_{page}")]]
             )
         )
 
@@ -301,14 +372,17 @@ async def edit_subscription_start(callback: types.CallbackQuery, state: FSMConte
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
-    user_id = int(callback.data.split("_")[3])
-    await state.update_data(user_id=user_id)
+    parts = callback.data.split("_")
+    user_id = int(parts[3])
+    page = int(parts[4]) if len(parts) > 4 else 1
+    
+    await state.update_data(user_id=user_id, page=page)
     await state.set_state(AdminStates.edit_subscription)
     
     await callback.message.edit_text(
         "Введите новую дату окончания подписки в формате ДД.ММ.ГГГГ:",
         reply_markup=types.InlineKeyboardMarkup(
-            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data=f"admin_user_{user_id}")]]
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data=f"admin_user_{user_id}_{page}")]]
         )
     )
     await callback.answer()
@@ -322,7 +396,7 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
         # Parse date in format DD.MM.YYYY
         date_str = message.text.strip()
         day, month, year = map(int, date_str.split('.'))
-        new_date = datetime(year, month, day, 23, 59, 59, tzinfo=timezone.utc)
+        new_date = datetime(year, month, day, 23, 59, 59)
     except (ValueError, IndexError):
         await message.answer(
             "Некорректный формат даты. Пожалуйста, введите дату в формате ДД.ММ.ГГГГ:",
@@ -334,6 +408,7 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
     
     data = await state.get_data()
     user_id = data.get("user_id")
+    page = data.get("page", 1)
     
     async with async_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
@@ -367,7 +442,7 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
         await message.answer(
             f"Дата окончания подписки пользователя @{user.username} успешно изменена на {formatted_date}",
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К пользователю", callback_data=f"admin_user_{user_id}")]]
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К пользователю", callback_data=f"admin_user_{user_id}_{page}")]]
             )
         )
 
@@ -377,8 +452,11 @@ async def delete_user_confirm(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
-    user_id = int(callback.data.split("_")[3])
-    await state.update_data(user_id=user_id)
+    parts = callback.data.split("_")
+    user_id = int(parts[3])
+    page = int(parts[4]) if len(parts) > 4 else 1
+    
+    await state.update_data(user_id=user_id, page=page)
     
     async with async_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
@@ -401,10 +479,10 @@ async def delete_user_confirm(callback: types.CallbackQuery, state: FSMContext):
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
-                        types.InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"admin_confirm_delete_{user.id}")
+                        types.InlineKeyboardButton(text="✅ Да, удалить", callback_data=f"admin_confirm_delete_{user.id}_{page}")
                     ],
                     [
-                        types.InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_user_{user.id}")
+                        types.InlineKeyboardButton(text="❌ Отмена", callback_data=f"admin_user_{user.id}_{page}")
                     ]
                 ]
             )
@@ -417,7 +495,9 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
-    user_id = int(callback.data.split("_")[3])
+    parts = callback.data.split("_")
+    user_id = int(parts[3])
+    page = int(parts[4]) if len(parts) > 4 else 1
     
     async with async_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
@@ -452,7 +532,7 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.edit_text(
             f"Пользователь @{username} успешно удален в боте\n" + text,
             reply_markup=types.InlineKeyboardMarkup(
-                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К списку пользователей", callback_data="admin_list_users")]]
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К списку пользователей", callback_data=f"admin_list_users_page_{page}")]]
             )
         )
         await callback.answer()
