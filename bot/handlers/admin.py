@@ -33,7 +33,7 @@ async def admin_handler(message: types.Message):
                 types.InlineKeyboardButton(text="👥 Все пользователи", callback_data="admin_list_users")
             ],
             [
-                types.InlineKeyboardButton(text="🔍 Поиск по telegram_id", callback_data="admin_search_user")
+                types.InlineKeyboardButton(text="🔍 Поиск по имени", callback_data="admin_search_user")
             ],
             [
                 types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="home")
@@ -55,7 +55,7 @@ async def admin_panel(callback: types.CallbackQuery):
                 types.InlineKeyboardButton(text="👥 Все пользователи", callback_data="admin_list_users")
             ],
             [
-                types.InlineKeyboardButton(text="🔍 Поиск по telegram_id", callback_data="admin_search_user")
+                types.InlineKeyboardButton(text="🔍 Поиск по имени", callback_data="admin_search_user")
             ],
             [
                 types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="home")

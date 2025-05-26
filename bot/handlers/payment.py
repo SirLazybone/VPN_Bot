@@ -5,7 +5,8 @@ from fastapi import FastAPI, Request, Response
 from db.database import async_session
 from db.service.payment_service import create_payment, get_user_payments, get_payment_by_payment_id, \
     update_payment_status
-from db.service.user_service import get_or_create_user, get_user_by_username, update_user_balance
+from db.service.user_service import get_or_create_user, get_user_by_username, update_user_balance, \
+    renew_subscription
 from bot.vpn_manager import VPNManager
 from fastapi import APIRouter, Request
 import json
@@ -126,9 +127,28 @@ async def check_payment(callback: types.CallbackQuery):
         if response['status'] == 'Closed':
             await update_user_balance(session, username=user.username, amount=float(response['amount']))
             await update_payment_status(session, id=payment.id, status=response['status'])
-            await callback.message.edit_text(
-                "✅ Оплата подтверждена!\n\n",
-                reply_markup=types.InlineKeyboardMarkup(
+
+            success = await renew_subscription(session, user.id, 30)
+
+            if success:
+                # Обновляем VPN конфигурацию
+                vpn_manager = VPNManager(session)
+                success_2 = await vpn_manager.renew_subscription(
+                    user=user,
+                    subscription_days=30
+                )
+
+                if success_2:
+                    message_text = (f"✅ Подписка успешно продлена!\n\n"
+                                    f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                                    f"Ваша VPN конфигурация:\n\n"
+                                    f"```\n{user.vpn_link}\n```\n\n")
+                else:
+                    message_text = ("❌ Ошибка при обновлении VPN конфигурации.\n"
+                                    "Пожалуйста, попробуйте продлить подписку в главном меню")
+                    await update_user_balance(session, username=user.username, amount=float(response['amount']))
+
+                success_keyboard = types.InlineKeyboardMarkup(
                     inline_keyboard=[
                         [
                             types.InlineKeyboardButton(
@@ -138,7 +158,7 @@ async def check_payment(callback: types.CallbackQuery):
                         ]
                     ]
                 )
-            )
+                await callback.message.answer(text=message_text, reply_markup=success_keyboard)
         else:
             await callback.answer(
                 "Проверка оплаты...\n"
@@ -146,68 +166,3 @@ async def check_payment(callback: types.CallbackQuery):
                 show_alert=True
             )
 
-
-@webhook_router.post("/donate")
-async def donate_webhook(request: Request):
-    async with async_session() as session:
-        try:
-            logger.info("Starting webhook processing...")
-            data = await request.json()
-            logger.info(f"Received webhook data: {data}")
-
-            # Обрабатываем подтверждение вебхука
-            if "type" in data and data.get("type") == "confirm":
-                logger.info("Processing confirm webhook")
-                return Response(content="eatHy5mWJ1", status_code=200)
-
-            # Обрабатываем донат
-            if "sum" in data:
-                logger.info("Processing donation...")
-                nickname = data.get('nickname')
-                if not nickname:
-                    logger.error("No nickname provided in donation data")
-                    return Response(content="No nickname provided", status_code=400)
-
-                logger.info(f"Looking for user with username: {nickname}")
-                user = await get_user_by_username(session, nickname)
-
-                if not user:
-                    logger.error(f"User with username {nickname} not found")
-                    return Response(content=f"User {nickname} not found", status_code=404)
-
-                logger.info(f"User found: {user.id}, {user.username}")
-
-                payments = await get_user_payments(session, user.id)
-
-                if not payments:
-                    logger.error("No pending payment found for user")
-                    return Response(content="No pending payment found", status_code=404)
-
-                payment = payments[0]
-
-                if payment.status != 'pending':
-                    logger.error("No pending payment found for user")
-                    return Response(content="No pending payment found", status_code=404)
-
-                payment.status = 'completed'
-                payment.amount = float(data.get('sum'))
-                payment.payment_id = data.get('uid')
-                payment.completed_at = datetime.utcnow()
-                payment.message = data.get('message')
-                payment.pay_system = data.get('pay_system')
-
-                user.balance += float(data.get('sum'))
-
-                await session.commit()
-
-                await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
-                await asyncio.gather(update_payment_by_nickname(nickname, payment))
-
-                logger.info("Webhook processing completed successfully")
-                return Response(content="OK", status_code=200)
-
-        except Exception as e:
-            logger.error(f"Error processing webhook: {e}")
-            logger.error("Traceback:")
-            logger.error(traceback.format_exc())
-            return Response(content=str(e), status_code=500)
