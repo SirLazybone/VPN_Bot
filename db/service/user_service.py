@@ -35,6 +35,19 @@ async def get_user_by_username(session: AsyncSession, username: str) -> User:
     return result.scalar_one_or_none()
 
 
+
+async def update_user_balance(session: AsyncSession, username: str, amount: float) -> bool:
+    """Обновляет баланс пользователя"""
+    user = await get_user_by_username(session, username)
+    if not user:
+        return False
+    
+    user.balance += amount
+    await session.commit()
+    await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
+    return True
+
+
 async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> bool:
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()

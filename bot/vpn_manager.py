@@ -93,7 +93,7 @@ class VPNManager:
 
     async def delete_user(self, username: str) -> bool:
         response = await self.vpn_client.delete_user(username=username)
-        if response is not None:
+        if response == 200:
             return True
         else:
             return False

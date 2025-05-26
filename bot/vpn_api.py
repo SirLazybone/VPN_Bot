@@ -164,7 +164,7 @@ class VPNClient:
     #         expire=30
     #     )
 
-    async def delete_user(self, username: str) -> Optional[Dict[str, Any]]:
+    async def delete_user(self, username: str):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.delete(
@@ -172,7 +172,7 @@ class VPNClient:
                     headers=self.headers,
                 )
                 response.raise_for_status()
-                return response.json()
+                return response.status_code
         except httpx.HTTPError as e:
             print(f"Error deleting VPN config: {e}")
             return None

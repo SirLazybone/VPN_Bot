@@ -46,6 +46,13 @@ async def cmd_start(message: types.Message, bot):
 @router.callback_query(F.data == "check_subscription")
 async def check_subscription_callback(callback: types.CallbackQuery, bot):
     if await check_subscription(callback.from_user.id, bot):
+
+        if callback.from_user.username is None:
+            await callback.answer("Для взаимодействия с телеграмм ботом, ему необходимо видеть вам никнейм, "
+                                  "иначе у нас не получится выдать вам персональную ссылку для подключения",
+                                  show_alert=True)
+            return
+
         async with async_session() as session:
             user = await get_or_create_user(session, callback.from_user)
 

@@ -3,15 +3,16 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from sqlalchemy import select, delete
 from datetime import datetime, timezone
-from config.config import ADMIN_NAME
 from db.database import async_session
 from db.models import User, Payment
 from bot.handlers.home import process_home_action
 from bot.vpn_manager import VPNManager
 from sheets.sheets import update_user_by_telegram_id
+from config.config import ADMIN_NAME_1, ADMIN_NAME_2
 import asyncio
 
 router = Router()
+ADMINS = [ADMIN_NAME_1, ADMIN_NAME_2]
 
 # FSM states for admin actions
 class AdminStates(StatesGroup):
@@ -22,7 +23,7 @@ class AdminStates(StatesGroup):
 
 @router.message(F.text == "admin")
 async def admin_handler(message: types.Message):
-    if message.from_user.username != ADMIN_NAME:
+    if message.from_user.username not in ADMINS:
         await process_home_action(message)
         return
     
@@ -44,7 +45,7 @@ async def admin_handler(message: types.Message):
 
 @router.callback_query(F.data == "admin_panel")
 async def admin_panel(callback: types.CallbackQuery):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await process_home_action(callback)
         return
     
@@ -67,7 +68,7 @@ async def admin_panel(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "admin_list_users")
 async def list_users(callback: types.CallbackQuery):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -76,7 +77,7 @@ async def list_users(callback: types.CallbackQuery):
 
 @router.callback_query(F.data.startswith("admin_list_users_page_"))
 async def list_users_page(callback: types.CallbackQuery, page: int = None):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -171,7 +172,7 @@ async def list_users_page(callback: types.CallbackQuery, page: int = None):
 
 @router.callback_query(F.data.startswith("admin_user_"))
 async def show_user_details(callback: types.CallbackQuery):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -229,7 +230,7 @@ async def show_user_details(callback: types.CallbackQuery):
 
 @router.callback_query(F.data == "admin_search_user")
 async def search_user_start(callback: types.CallbackQuery, state: FSMContext):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -245,7 +246,7 @@ async def search_user_start(callback: types.CallbackQuery, state: FSMContext):
 
 @router.message(AdminStates.search_user)
 async def search_user_process(message: types.Message, state: FSMContext):
-    if message.from_user.username != ADMIN_NAME:
+    if message.from_user.username not in ADMINS:
         return
 
     username = message.text.strip()
@@ -300,7 +301,7 @@ async def search_user_process(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("admin_edit_balance_"))
 async def edit_balance_start(callback: types.CallbackQuery, state: FSMContext):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -321,7 +322,7 @@ async def edit_balance_start(callback: types.CallbackQuery, state: FSMContext):
 
 @router.message(AdminStates.edit_balance)
 async def edit_balance_process(message: types.Message, state: FSMContext):
-    if message.from_user.username != ADMIN_NAME:
+    if message.from_user.username not in ADMINS:
         return
     
     try:
@@ -368,7 +369,7 @@ async def edit_balance_process(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("admin_edit_subscription_"))
 async def edit_subscription_start(callback: types.CallbackQuery, state: FSMContext):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -389,7 +390,7 @@ async def edit_subscription_start(callback: types.CallbackQuery, state: FSMConte
 
 @router.message(AdminStates.edit_subscription)
 async def edit_subscription_process(message: types.Message, state: FSMContext):
-    if message.from_user.username != ADMIN_NAME:
+    if message.from_user.username not in ADMINS:
         return
     
     try:
@@ -448,7 +449,7 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("admin_delete_user_"))
 async def delete_user_confirm(callback: types.CallbackQuery, state: FSMContext):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     
@@ -491,7 +492,7 @@ async def delete_user_confirm(callback: types.CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data.startswith("admin_confirm_delete_"))
 async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
-    if callback.from_user.username != ADMIN_NAME:
+    if callback.from_user.username not in ADMINS:
         await callback.answer("Доступ запрещен", show_alert=True)
         return
     

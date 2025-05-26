@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from db.models import User, Payment
-from sheets.sheets import add_payment_to_sheets
+from sheets.sheets import add_payment_to_sheets, update_payment_by_nickname, update_payment_by_id
 import asyncio
 
 async def create_payment(
@@ -37,15 +37,50 @@ async def get_payment_by_id(session: AsyncSession, id: int) -> Payment:
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 
-async def check_subscription_status(session: AsyncSession, user_id: int) -> bool:
-    """Проверяет статус подписки пользователя"""
-    stmt = select(User).where(User.id == user_id)
+async def get_payment_by_payment_id(session: AsyncSession, payment_id) -> Payment:
+    stmt = select(Payment).where(Payment.payment_id == payment_id)
     result = await session.execute(stmt)
-    user = result.scalar_one_or_none()
+    return result.scalar_one_or_none()
+
+
+async def set_payment_id(session: AsyncSession, id, payment_id) -> Payment:
+    stmt = select(Payment).where(Payment.id == id)
+    result = await session.execute(stmt)
+    payment = result.scalar_one_or_none()
+    if not payment:
+        return None
+    payment.payment_id = payment_id
+    await asyncio.gather(update_payment_by_nickname(payment.nickname, payment))
+    await session.commit()
+    return payment
+
+async def update_payment_status(
+    session: AsyncSession,
+    id: int,
+    status: str,
+    amount: float = None,
+    payment_id: str = None,
+    completed_at: datetime = None,
+    pay_system: str = None
+) -> Payment:
+    """Обновляет статус платежа и связанные данные"""
+    stmt = select(Payment).where(Payment.id == id)
+    result = await session.execute(stmt)
+    payment = result.scalar_one_or_none()
     
-    if not user or not user.subscription_start:
-        return False
-        
-    # Проверяем, не истекла ли подписка (30 дней)
-    subscription_end = user.subscription_start + timedelta(days=30)
-    return datetime.utcnow() < subscription_end 
+    if not payment:
+        return None
+    
+    payment.status = status
+    if amount is not None:
+        payment.amount = amount
+    if payment_id:
+        payment.payment_id = payment_id
+    if completed_at:
+        payment.completed_at = completed_at
+    if pay_system:
+        payment.pay_system = pay_system
+
+    await asyncio.gather(update_payment_by_id(payment.id, payment))
+    await session.commit()
+    return payment

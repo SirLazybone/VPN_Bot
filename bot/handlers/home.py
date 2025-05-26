@@ -142,6 +142,10 @@ async def process_update_sub_action(event):
         else: 
             user = await get_or_create_user(session, event.from_user)
 
+        if user.vpn_link is None:
+            return
+
+
         success = await renew_subscription(session, user.id, 30)
 
         if success:
@@ -151,6 +155,7 @@ async def process_update_sub_action(event):
                 user=user,
                 subscription_days=30
             )
+
 
             message_text = (
                 "✅ Подписка успешно продлена!\n\n"

@@ -12,4 +12,9 @@ TECH_SUPPORT_USERNAME = os.getenv("TECH_SUPPORT_USERNAME")  # Username подд�
 API_TOKEN = os.getenv("API_TOKEN")
 API_URL = os.getenv("API_URL")
 VPN_PRICE = float(os.getenv("VPN_PRICE"))
-ADMIN_NAME = os.getenv("ADMIN_NAME")
+ADMIN_NAME_1 = os.getenv("ADMIN_NAME_1")
+ADMIN_NAME_2 = os.getenv("ADMIN_NAME_2")
+WATA_JWT_TOKEN = os.getenv("WATA_JWT_TOKEN")
+WATA_DONATE_URL = os.getenv("WATA_DONATE_URL")
+BOT_LINK = os.getenv("BOT_LINK")
+

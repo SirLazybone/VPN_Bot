@@ -3,8 +3,9 @@ from aiogram.types import LabeledPrice
 from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE
 from fastapi import FastAPI, Request, Response
 from db.database import async_session
-from db.service.payment_service import create_payment, get_user_payments, get_payment_by_id
-from db.service.user_service import get_or_create_user, get_user_by_username
+from db.service.payment_service import create_payment, get_user_payments, get_payment_by_payment_id, \
+    update_payment_status
+from db.service.user_service import get_or_create_user, get_user_by_username, update_user_balance
 from bot.vpn_manager import VPNManager
 from fastapi import APIRouter, Request
 import json
@@ -13,7 +14,7 @@ import traceback
 import logging
 import asyncio
 from sheets.sheets import update_payment_by_nickname, update_user_by_telegram_id
-
+from bot.donate_api import DonateApi
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -41,18 +42,29 @@ async def process_payment(callback: types.CallbackQuery, bot):
             nickname=user.username
         )
 
+        donate_api = DonateApi()
+        response = await donate_api.create_donate_url(payment_id=payment.id)
+        if response is None:
+            await callback.answer(text='Не удалось создать ссылку для платежа,'
+                                       ' проблема у сервиса оплаты, попробуйте'
+                                       ' снова через како-то время', show_alert=True)
+            return
+
+        await update_payment_status(session=session, id=payment.id, payment_id=response['id'],
+                                    status=response['status'], amount=response['amount'])
+
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
                 [
                     types.InlineKeyboardButton(
                         text="💳 Оплатить",
-                        url=DONATE_STREAM_URL,
+                        url=response['url'],
                     )
                 ],
                 [
                     types.InlineKeyboardButton(
                         text="✅ Проверить оплату",
-                        callback_data=f"check_payment:{payment.id}"
+                        callback_data=f"check_payment:{payment.payment_id}"
                     )
                 ],
                 [
@@ -84,18 +96,17 @@ async def check_payment(callback: types.CallbackQuery):
     """
     Проверяет оплату и продлевает подписку
     """
-    id = int(callback.data.split(":")[1])
+    payment_id = callback.data.split(":")[1]
     async with async_session() as session:
         user = await get_or_create_user(session, callback.from_user)
-        payment = await get_payment_by_id(session, id)
+        payment = await get_payment_by_payment_id(session, payment_id)
 
-        now = datetime.utcnow()
-        time_limit = payment.created_at + timedelta(minutes=10)
-
-        if now >= time_limit:
-            await callback.answer("Что-то пошло не так...\n"
-                                  "Если вы оплатили, свяжитесь с поддержкой\n"
-                                  "Если нет, то создайте новый платёж: \"Пополнить баланс\"", show_alert=True)
+        donate_api = DonateApi()
+        response = await donate_api.find_donate_url(payment_id)
+        if response is None:
+            await callback.answer(text="Что-то пошло не так...\n"
+                                       "Создайте новый платёж", show_alert=True)
+            return
 
         if not payment:
             await callback.answer("Платёж не создался, попробуйте заново", show_alert=True)
@@ -105,7 +116,16 @@ async def check_payment(callback: types.CallbackQuery):
             await callback.answer("Этот платёж не принадлежит вам.", show_alert=True)
             return
 
-        if payment.status == 'completed':
+        now = datetime.utcnow()
+        dt = datetime.strptime(response['expirationDateTime'], "%Y-%m-%dT%H:%M:%S.%fZ")
+
+        if dt < now:
+            await callback.answer("Время на оплату истекло, создайте новый платёж", show_alert=True)
+            return
+
+        if response['status'] == 'Closed':
+            await update_user_balance(session, username=user.username, amount=float(response['amount']))
+            await update_payment_status(session, id=payment.id, status=response['status'])
             await callback.message.edit_text(
                 "✅ Оплата подтверждена!\n\n",
                 reply_markup=types.InlineKeyboardMarkup(
