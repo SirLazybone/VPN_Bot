@@ -1,6 +1,7 @@
 from aiogram import Router, types, F
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
+from aiogram import Bot
 from sqlalchemy import select, delete
 from datetime import datetime, timezone
 from db.database import async_session
@@ -8,10 +9,11 @@ from db.models import User, Payment
 from bot.handlers.home import process_home_action
 from bot.vpn_manager import VPNManager
 from sheets.sheets import update_user_by_telegram_id
-from config.config import ADMIN_NAME_1, ADMIN_NAME_2
+from config.config import ADMIN_NAME_1, ADMIN_NAME_2, BOT_TOKEN
 import asyncio
 
 router = Router()
+bot = Bot(token=BOT_TOKEN)
 ADMINS = [ADMIN_NAME_1, ADMIN_NAME_2]
 
 # FSM states for admin actions
@@ -20,6 +22,11 @@ class AdminStates(StatesGroup):
     edit_balance = State()
     edit_subscription = State()
     confirm_delete = State()
+    mail_everyone = State()
+    mail_user = State()
+    mail_type_choice = State()
+    mail_photo = State()
+    mail_photo_text = State()
 
 @router.message(F.text == "admin")
 async def admin_handler(message: types.Message):
@@ -34,6 +41,9 @@ async def admin_handler(message: types.Message):
             ],
             [
                 types.InlineKeyboardButton(text="🔍 Поиск по имени", callback_data="admin_search_user")
+            ],
+            [
+                types.InlineKeyboardButton(text="✉️ Отправить сообщение всем пользователям", callback_data="init_mailing")
             ],
             [
                 types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="home")
@@ -56,6 +66,9 @@ async def admin_panel(callback: types.CallbackQuery):
             ],
             [
                 types.InlineKeyboardButton(text="🔍 Поиск по имени", callback_data="admin_search_user")
+            ],
+            [
+                types.InlineKeyboardButton(text="✉️ Отправить сообщение всем пользователям", callback_data="init_mailing")
             ],
             [
                 types.InlineKeyboardButton(text="🏠 Главное меню", callback_data="home")
@@ -217,6 +230,9 @@ async def show_user_details(callback: types.CallbackQuery):
                     types.InlineKeyboardButton(text="📅 Изменить подписку", callback_data=f"admin_edit_subscription_{user.id}_{page}")
                 ],
                 [
+                    types.InlineKeyboardButton(text="✉️ Написать", callback_data=f"mail_user_{user.id}_{page}")
+                ],
+                [
                     types.InlineKeyboardButton(text="❌ Удалить пользователя", callback_data=f"admin_delete_user_{user.id}_{page}")
                 ],
                 [
@@ -287,6 +303,9 @@ async def search_user_process(message: types.Message, state: FSMContext):
                 ],
                 [
                     types.InlineKeyboardButton(text="📅 Изменить подписку", callback_data=f"admin_edit_subscription_{user.id}")
+                ],
+                [
+                    types.InlineKeyboardButton(text="✉️ Написать", callback_data=f"mail_user_{user.id}")
                 ],
                 [
                     types.InlineKeyboardButton(text="❌ Удалить пользователя", callback_data=f"admin_delete_user_{user.id}")
@@ -503,6 +522,7 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
     async with async_session() as session:
         result = await session.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
+
         
         if not user:
             await callback.message.edit_text(
@@ -538,3 +558,225 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
             )
         )
         await callback.answer()
+
+
+@router.callback_query(F.data == "init_mailing")
+async def init_mail_everyone(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+
+    await state.set_state(AdminStates.mail_type_choice)
+
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(text="📝 Только текст", callback_data="mail_text_only")
+            ],
+            [
+                types.InlineKeyboardButton(text="🖼️ Текст с картинкой", callback_data="mail_with_photo")
+            ],
+            [
+                types.InlineKeyboardButton(text="◀️ Отмена", callback_data="admin_panel")
+            ]
+        ]
+    )
+
+    await callback.message.edit_text(
+        "Выберите тип сообщения для рассылки:",
+        reply_markup=keyboard
+    )
+    await callback.answer()
+
+
+@router.message(AdminStates.mail_everyone)
+async def mail_everyone(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        await message.answer("Доступ запрещен", show_alert=True)
+        return
+
+    mail = message.text
+
+    await state.clear()
+
+    async with async_session() as session:
+        result = await session.execute(select(User))
+        users = result.scalars().all()
+
+        success_count = 0
+        error_count = 0
+
+        for user in users:
+            try:
+                await bot.send_message(
+                    user.telegram_id,
+                    text=mail
+                )
+                success_count += 1
+            except Exception as e:
+                error_count += 1
+                print(f"Error sending message to user {user.username}: {e}")
+
+        await message.answer(
+            f"Текстовое сообщение отправлено!\n"
+            f"Успешно: {success_count}\n"
+            f"Ошибок: {error_count}",
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")]]
+            )
+        )
+
+
+@router.callback_query(F.data.startswith("mail_user_"))
+async def init_mail_user(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+
+    parts = callback.data.split("_")
+    user_id = int(parts[2])
+    page = int(parts[3]) if len(parts) > 3 else 1
+
+    await state.set_state(AdminStates.mail_user)
+    await state.update_data(user_id=user_id, page=page)
+
+    await callback.message.edit_text(
+        "Введите сообщение для пользователя:",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [types.InlineKeyboardButton(text="◀️ Отмена", callback_data=f"admin_user_{user_id}_{page}")]]
+        )
+    )
+    await callback.answer()
+
+@router.message(AdminStates.mail_user)
+async def mail_user(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        await message.answer("Доступ запрещен", show_alert=True)
+        return
+
+    mail = message.text
+    data = await state.get_data()
+    user_id = data.get("user_id")
+    page = data.get("page")
+
+    async with async_session() as session:
+        result = await session.execute(select(User).where(User.id == user_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            await message.answer(
+                "Пользователь не найден",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")]]
+                )
+            )
+            await state.clear()
+            return
+
+        try:
+            await bot.send_message(
+                user.telegram_id,
+                text=mail
+            )
+            await message.answer(f"Сообщение отправлено пользователю {user.username}",
+                                 reply_markup=types.InlineKeyboardMarkup(
+                                     inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К пользователю",
+                                                                                  callback_data=f"admin_user_{user_id}_{page}")]]
+                                 ))
+            await state.clear()
+        except Exception as e:
+            await message.answer(f"Error sending message to user {user.username}: {e}")
+
+@router.callback_query(F.data == "mail_text_only")
+async def mail_text_only(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+
+    await state.set_state(AdminStates.mail_everyone)
+
+    await callback.message.edit_text(
+        "Введите текст сообщения:",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data="admin_panel")]]
+        )
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "mail_with_photo")
+async def mail_with_photo_start(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+
+    await state.set_state(AdminStates.mail_photo)
+
+    await callback.message.edit_text(
+        "Отправьте картинку:",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data="admin_panel")]]
+        )
+    )
+    await callback.answer()
+
+
+@router.message(AdminStates.mail_photo, F.photo)
+async def handle_mail_photo(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        return
+
+    # Сохраняем file_id картинки
+    photo_file_id = message.photo[-1].file_id
+    await state.update_data(photo_file_id=photo_file_id)
+    await state.set_state(AdminStates.mail_photo_text)
+
+    await message.answer(
+        "Теперь введите текст для сообщения с картинкой:",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Отмена", callback_data="admin_panel")]]
+        )
+    )
+
+
+@router.message(AdminStates.mail_photo_text)
+async def mail_photo_with_text(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        await message.answer("Доступ запрещен", show_alert=True)
+        return
+
+    text = message.text
+    data = await state.get_data()
+    photo_file_id = data.get("photo_file_id")
+
+    await state.clear()
+
+    async with async_session() as session:
+        result = await session.execute(select(User))
+        users = result.scalars().all()
+
+        success_count = 0
+        error_count = 0
+
+        for user in users:
+            try:
+                await bot.send_photo(
+                    user.telegram_id,
+                    photo=photo_file_id,
+                    caption=text
+                )
+                success_count += 1
+            except Exception as e:
+                error_count += 1
+                print(f"Error sending message to user {user.username}: {e}")
+
+        await message.answer(
+            f"Сообщение с картинкой отправлено!\n"
+            f"Успешно: {success_count}\n"
+            f"Ошибок: {error_count}",
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")]]
+            )
+        )
+

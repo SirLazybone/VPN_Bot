@@ -73,3 +73,10 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> 
     await session.commit()
     await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
     return True
+
+
+async def get_all_users(session: AsyncSession):
+    result = await session.execute(select(User))
+    users = result.scalars().all()
+
+    return users
