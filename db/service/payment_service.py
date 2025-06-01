@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
 from db.models import User, Payment
-from sheets.sheets import add_payment_to_sheets, update_payment_by_nickname, update_payment_by_id
+from sheets.sheets_service import add_payment_to_sheets, update_payment_by_nickname, update_payment_by_id
 import asyncio
 
 async def create_payment(

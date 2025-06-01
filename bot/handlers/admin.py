@@ -8,7 +8,7 @@ from db.database import async_session
 from db.models import User, Payment, Server
 from bot.handlers.home import process_home_action
 from bot.vpn_manager import VPNManager
-from sheets.sheets import update_user_by_telegram_id
+from sheets.sheets_service import update_user_by_telegram_id
 from config.config import ADMIN_NAME_1, ADMIN_NAME_2, BOT_TOKEN
 from db.service.server_service import (
     get_all_servers, get_server_by_id, create_server, 

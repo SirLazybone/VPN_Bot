@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import traceback
 import logging
 import asyncio
-from sheets.sheets import update_payment_by_nickname, update_user_by_telegram_id
+from sheets.sheets_service import update_payment_by_nickname, update_user_by_telegram_id
 from bot.donate_api import DonateApi
 from sqlalchemy import select
 

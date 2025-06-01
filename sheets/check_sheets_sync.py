@@ -15,7 +15,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from db.database import async_session
 from db.models import User, Payment, Server
 from sqlalchemy import select
-from sheets.sheets import (
+from sheets.sheets_service import (
     sheet_users, sheet_payments, sheet_servers,
     client, spreadsheets_id
 )

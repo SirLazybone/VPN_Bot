@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from aiogram import Bot
 from aiogram import types
 from config.config import BOT_TOKEN, ADMIN_NAME_1, ADMIN_NAME_2
-from sheets.sheets import update_user_by_telegram_id
+from sheets.sheets_service import update_user_by_telegram_id
 from db.service.user_cleanup_service import (
     cleanup_expired_users, get_cleanup_stats
 )

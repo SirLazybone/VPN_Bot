@@ -3,7 +3,7 @@ from db.models import User
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from config.config import VPN_PRICE
-from sheets.sheets import add_user_to_sheets, update_user_by_telegram_id
+from sheets.sheets_service import add_user_to_sheets, update_user_by_telegram_id
 import asyncio
 
 
