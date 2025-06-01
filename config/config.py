@@ -10,7 +10,10 @@ ADMIN_CHAT = os.getenv("ADMIN_CHAT")  # ID администратора для �
 DONATE_STREAM_URL = "https://donate.stream/donate_67f84fc4a11fb"
 TECH_SUPPORT_USERNAME = os.getenv("TECH_SUPPORT_USERNAME")  # Username поддержки
 API_TOKEN = os.getenv("API_TOKEN")
+
+# Fallback URL для обратной совместимости (используется только если в БД нет серверов)
 API_URL = os.getenv("API_URL")
+
 VPN_PRICE = float(os.getenv("VPN_PRICE"))
 ADMIN_NAME_1 = os.getenv("ADMIN_NAME_1")
 ADMIN_NAME_2 = os.getenv("ADMIN_NAME_2")

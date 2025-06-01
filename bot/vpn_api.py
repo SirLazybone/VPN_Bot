@@ -4,13 +4,30 @@ from config.config import API_TOKEN, API_URL
 from datetime import datetime, timedelta
 
 class VPNClient:
-    def __init__(self):
+    def __init__(self, server_url: str, server_name: str = "VPN Server"):
         self.api_token = API_TOKEN
-        self.base_url = API_URL
+        self.base_url = server_url
+        self.server_name = server_name
+        
+        if not self.base_url:
+            raise ValueError(f"URL сервера не может быть пустым")
+            
         self.headers = {
             "Authorization": f"Bearer {self.api_token}",
             "Content-Type": "application/json"
         }
+
+    @classmethod
+    def from_server(cls, server):
+        """Создает VPNClient из объекта Server"""
+        return cls(server_url=server.url, server_name=server.name)
+
+    @classmethod 
+    def from_fallback(cls):
+        """Создает VPNClient из fallback конфигурации"""
+        if not API_URL:
+            raise ValueError("Нет доступных серверов и fallback URL не настроен")
+        return cls(server_url=API_URL, server_name="Fallback Server")
 
     async def create_vpn_config(
         self, 

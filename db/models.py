@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Boolean, TIMESTAMP, BigInteger, JSON
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from datetime import datetime
 from sqlalchemy.sql import func
 
@@ -17,6 +18,27 @@ class User(Base):
     subscription_end = Column(TIMESTAMP, nullable=True)
     is_active = Column(Boolean, default=True)
     vpn_link = Column(String, nullable=True)
+    server_id = Column(Integer, ForeignKey('servers.id'), nullable=True)  # Убираем default и делаем nullable
+    
+    # Поле для отслеживания использования пробного периода
+    trial_used = Column(Boolean, default=False, nullable=False)  # Использовал ли пробный период
+    
+    # Связь с сервером
+    server = relationship("Server", back_populates="users")
+
+class Server(Base):
+    __tablename__ = 'servers'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String, nullable=False)  # Название сервера
+    url = Column(String, nullable=False)   # URL API сервера
+    is_active = Column(Boolean, default=True)  # Доступен ли сервер для новых пользователей
+    is_default = Column(Boolean, default=False)  # Является ли сервером по умолчанию
+    created_at = Column(DateTime, default=datetime.utcnow)
+    description = Column(String, nullable=True)  # Описание сервера
+    
+    # Связь с пользователями
+    users = relationship("User", back_populates="server")
 
 class Payment(Base):
     __tablename__ = 'payments'

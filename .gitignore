@@ -33,3 +33,4 @@ ENV/
 Thumbs.db
 
 sheets/creds.json
+local_backup.sql

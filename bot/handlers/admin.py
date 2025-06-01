@@ -5,11 +5,16 @@ from aiogram import Bot
 from sqlalchemy import select, delete
 from datetime import datetime, timezone
 from db.database import async_session
-from db.models import User, Payment
+from db.models import User, Payment, Server
 from bot.handlers.home import process_home_action
 from bot.vpn_manager import VPNManager
 from sheets.sheets import update_user_by_telegram_id
 from config.config import ADMIN_NAME_1, ADMIN_NAME_2, BOT_TOKEN
+from db.service.server_service import (
+    get_all_servers, get_server_by_id, create_server, 
+    update_server, set_default_server, delete_server, get_default_server,
+    get_servers_statistics, get_server_users_count, get_server_active_users_count
+)
 import asyncio
 
 router = Router()
@@ -27,6 +32,15 @@ class AdminStates(StatesGroup):
     mail_type_choice = State()
     mail_photo = State()
     mail_photo_text = State()
+    
+    # Новые состояния для управления серверами
+    add_server_name = State()
+    add_server_url = State()
+    add_server_description = State()
+    edit_server_name = State()
+    edit_server_url = State()
+    edit_server_description = State()
+    confirm_delete_server = State()
 
 @router.message(F.text == "admin")
 async def admin_handler(message: types.Message):
@@ -41,6 +55,9 @@ async def admin_handler(message: types.Message):
             ],
             [
                 types.InlineKeyboardButton(text="🔍 Поиск по имени", callback_data="admin_search_user")
+            ],
+            [
+                types.InlineKeyboardButton(text="🖥️ Управление серверами", callback_data="admin_servers")
             ],
             [
                 types.InlineKeyboardButton(text="✉️ Отправить сообщение всем пользователям", callback_data="init_mailing")
@@ -66,6 +83,9 @@ async def admin_panel(callback: types.CallbackQuery):
             ],
             [
                 types.InlineKeyboardButton(text="🔍 Поиск по имени", callback_data="admin_search_user")
+            ],
+            [
+                types.InlineKeyboardButton(text="🖥️ Управление серверами", callback_data="admin_servers")
             ],
             [
                 types.InlineKeyboardButton(text="✉️ Отправить сообщение всем пользователям", callback_data="init_mailing")
@@ -219,7 +239,10 @@ async def show_user_details(callback: types.CallbackQuery):
         text += f"Баланс: {user.balance} руб.\n"
         text += f"Подписка с: {sub_start}\n"
         text += f"Подписка до: {sub_end}\n"
+        text += f"Сервер: {user.server_id if user.server_id else 'Не назначен'}\n"
         text += f"Статус: {'✅ Активен' if user.is_active else '❌ Неактивен'}\n"
+        text += f"Пробный период: {'🎯 Использован' if user.trial_used else '⭕ Не использован'}\n"
+        text += f"VPN конфиг: {'✅ Есть' if user.vpn_link else '❌ Нет'}\n"
         
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -294,7 +317,10 @@ async def search_user_process(message: types.Message, state: FSMContext):
         text += f"Баланс: {user.balance} руб.\n"
         text += f"Подписка с: {sub_start}\n"
         text += f"Подписка до: {sub_end}\n"
+        text += f"Сервер: {user.server_id if user.server_id else 'Не назначен'}\n"
         text += f"Статус: {'✅ Активен' if user.is_active else '❌ Неактивен'}\n"
+        text += f"Пробный период: {'🎯 Использован' if user.trial_used else '⭕ Не использован'}\n"
+        text += f"VPN конфиг: {'✅ Есть' if user.vpn_link else '❌ Нет'}\n"
         
         keyboard = types.InlineKeyboardMarkup(
             inline_keyboard=[
@@ -452,15 +478,28 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
         user.is_active = True  # Activate user when setting subscription
 
         vpn_manager = VPNManager(session)
-        await vpn_manager.renew_subscription(user=user, new_expire_ts=int(new_date.timestamp()))
+        vpn_success = await vpn_manager.renew_subscription(user=user, new_expire_ts=int(new_date.timestamp()))
+        
+        if vpn_success:
+            # Получаем обновленного пользователя для получения актуальной VPN ссылки
+            await session.refresh(user)
+            
         await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
         await session.commit()
 
         await state.clear()
         
         formatted_date = new_date.strftime("%d.%m.%Y %H:%M")
+        
+        if vpn_success:
+            success_message = f"✅ Дата окончания подписки пользователя @{user.username} успешно изменена на {formatted_date}"
+            if user.vpn_link:
+                success_message += "\n🔐 VPN конфигурация обновлена"
+        else:
+            success_message = f"⚠️ Дата подписки изменена на {formatted_date}, но возникла ошибка с VPN конфигурацией"
+        
         await message.answer(
-            f"Дата окончания подписки пользователя @{user.username} успешно изменена на {formatted_date}",
+            success_message,
             reply_markup=types.InlineKeyboardMarkup(
                 inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К пользователю", callback_data=f"admin_user_{user_id}_{page}")]]
             )
@@ -543,7 +582,7 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
         await session.execute(delete(User).where(User.id == user_id))
         vpn_manager = VPNManager(session)
         text = ""
-        if await vpn_manager.delete_user(username):
+        if await vpn_manager.delete_user(username, server_id=user.server_id):
             text = "Пользователь успешно удалён на сервере"
         else:
             text = "Не удалось удалить пользователя на сервере"
@@ -779,4 +818,348 @@ async def mail_photo_with_text(message: types.Message, state: FSMContext):
                 inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")]]
             )
         )
+
+
+# ======================== УПРАВЛЕНИЕ СЕРВЕРАМИ ========================
+
+@router.callback_query(F.data == "admin_servers")
+async def admin_servers_menu(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    async with async_session() as session:
+        stats = await get_servers_statistics(session)
+        default_server = await get_default_server(session)
+        
+        text = "🖥️ Управление серверами\n\n"
+        
+        if stats["total_servers"] == 0:
+            text += "📭 Серверы не настроены\n"
+            text += "Используется fallback конфигурация из .env"
+        else:
+            text += f"📊 Всего серверов: {stats['total_servers']}\n"
+            text += f"✅ Активных: {stats['active_servers']}\n\n"
+            
+            for server_data in stats["servers_data"]:
+                status = "✅" if server_data["is_active"] else "❌"
+                default_mark = " 🎯" if default_server and server_data["id"] == default_server.id else ""
+                
+                text += f"{status} {server_data['name']}{default_mark}\n"
+                text += f"   ID: {server_data['id']} | URL: {server_data['url'][:30]}...\n"
+                text += f"   👥 Всего: {server_data['total_users']} | Активных: {server_data['active_users']}\n"
+                
+                if server_data["description"]:
+                    text += f"   📝 {server_data['description']}\n"
+                text += "\n"
+        
+        keyboard = types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(text="➕ Добавить сервер", callback_data="add_server")
+                ],
+                [
+                    types.InlineKeyboardButton(text="📋 Список серверов", callback_data="list_servers")
+                ],
+                [
+                    types.InlineKeyboardButton(text="🎯 Сменить активный", callback_data="change_default_server")
+                ],
+                [
+                    types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")
+                ]
+            ]
+        )
+        
+        await callback.message.edit_text(text, reply_markup=keyboard)
+        await callback.answer()
+
+@router.callback_query(F.data == "list_servers")
+async def list_servers_menu(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    async with async_session() as session:
+        servers = await get_all_servers(session)
+        
+        if not servers:
+            await callback.message.edit_text(
+                "📭 Серверы не настроены",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_servers")]]
+                )
+            )
+            await callback.answer()
+            return
+        
+        # Создаем кнопки для серверов
+        keyboard = []
+        for server in servers:
+            status = "✅" if server.is_active else "❌"
+            keyboard.append([
+                types.InlineKeyboardButton(
+                    text=f"{status} {server.name}",
+                    callback_data=f"server_details_{server.id}"
+                )
+            ])
+        
+        keyboard.append([types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_servers")])
+        
+        await callback.message.edit_text(
+            "📋 Выберите сервер для управления:",
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        await callback.answer()
+
+@router.callback_query(F.data.startswith("server_details_"))
+async def server_details(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    server_id = int(callback.data.split("_")[2])
+    
+    async with async_session() as session:
+        server = await get_server_by_id(session, server_id)
+        default_server = await get_default_server(session)
+        
+        if not server:
+            await callback.message.edit_text(
+                "❌ Сервер не найден",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="list_servers")]]
+                )
+            )
+            await callback.answer()
+            return
+        
+        # Подсчитываем пользователей на сервере через новые функции
+        total_users = await get_server_users_count(session, server_id)
+        active_users = await get_server_active_users_count(session, server_id)
+        
+        is_default = default_server and server.id == default_server.id
+        status = "✅ Активен" if server.is_active else "❌ Неактивен"
+        default_text = " (По умолчанию)" if is_default else ""
+        
+        text = f"🖥️ Сервер: {server.name}{default_text}\n\n"
+        text += f"ID: {server.id}\n"
+        text += f"URL: {server.url}\n"
+        text += f"Статус: {status}\n"
+        text += f"👥 Всего пользователей: {total_users}\n"
+        text += f"🖥️ Активных на VPN: {active_users}\n"
+        text += f"📅 Создан: {server.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+        
+        if server.description:
+            text += f"\n📝 Описание:\n{server.description}"
+        
+        keyboard = []
+        
+        # Кнопка активации/деактивации
+        if server.is_active:
+            keyboard.append([types.InlineKeyboardButton(text="❌ Деактивировать", callback_data=f"toggle_server_{server_id}")])
+        else:
+            keyboard.append([types.InlineKeyboardButton(text="✅ Активировать", callback_data=f"toggle_server_{server_id}")])
+        
+        # Кнопка установки по умолчанию
+        if not is_default and server.is_active:
+            keyboard.append([types.InlineKeyboardButton(text="🎯 Сделать основным", callback_data=f"set_default_{server_id}")])
+        
+        keyboard.extend([
+            [types.InlineKeyboardButton(text="✏️ Редактировать", callback_data=f"edit_server_{server_id}")],
+            [types.InlineKeyboardButton(text="❌ Удалить", callback_data=f"delete_server_{server_id}")],
+            [types.InlineKeyboardButton(text="◀️ Назад", callback_data="list_servers")]
+        ])
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        await callback.answer()
+
+@router.callback_query(F.data == "add_server")
+async def add_server_start(callback: types.CallbackQuery, state: FSMContext):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    await state.set_state(AdminStates.add_server_name)
+    
+    await callback.message.edit_text(
+        "➕ Добавление нового сервера\n\n"
+        "Введите название сервера:",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_servers")]]
+        )
+    )
+    await callback.answer()
+
+@router.message(AdminStates.add_server_name)
+async def add_server_name_process(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        return
+    
+    server_name = message.text.strip()
+    if not server_name:
+        await message.answer("❌ Название не может быть пустым. Попробуйте еще раз:")
+        return
+    
+    await state.update_data(server_name=server_name)
+    await state.set_state(AdminStates.add_server_url)
+    
+    await message.answer(
+        f"Название: {server_name}\n\n"
+        "Теперь введите URL API сервера (например: https://example.com):",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_servers")]]
+        )
+    )
+
+@router.message(AdminStates.add_server_url)
+async def add_server_url_process(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        return
+    
+    server_url = message.text.strip()
+    if not server_url.startswith(('http://', 'https://')):
+        await message.answer("❌ URL должен начинаться с http:// или https://. Попробуйте еще раз:")
+        return
+    
+    await state.update_data(server_url=server_url)
+    await state.set_state(AdminStates.add_server_description)
+    
+    data = await state.get_data()
+    await message.answer(
+        f"Название: {data['server_name']}\n"
+        f"URL: {server_url}\n\n"
+        "Введите описание сервера (или отправьте '-' чтобы пропустить):",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="❌ Отмена", callback_data="admin_servers")]]
+        )
+    )
+
+@router.message(AdminStates.add_server_description)
+async def add_server_description_process(message: types.Message, state: FSMContext):
+    if message.from_user.username not in ADMINS:
+        return
+    
+    description = message.text.strip()
+    if description == '-':
+        description = None
+    
+    data = await state.get_data()
+    
+    async with async_session() as session:
+        try:
+            server = await create_server(
+                session=session,
+                name=data['server_name'],
+                url=data['server_url'],
+                description=description
+            )
+            
+            await state.clear()
+            
+            await message.answer(
+                f"✅ Сервер успешно добавлен!\n\n"
+                f"Название: {server.name}\n"
+                f"URL: {server.url}\n"
+                f"ID: {server.id}",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ К серверам", callback_data="admin_servers")]]
+                )
+            )
+            
+        except Exception as e:
+            await message.answer(
+                f"❌ Ошибка при создании сервера: {e}",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_servers")]]
+                )
+            )
+            await state.clear()
+
+@router.callback_query(F.data.startswith("toggle_server_"))
+async def toggle_server_status(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    server_id = int(callback.data.split("_")[2])
+    
+    async with async_session() as session:
+        server = await get_server_by_id(session, server_id)
+        if not server:
+            await callback.answer("❌ Сервер не найден", show_alert=True)
+            return
+        
+        new_status = not server.is_active
+        success = await update_server(session, server_id, is_active=new_status)
+        
+        if success:
+            status_text = "активирован" if new_status else "деактивирован"
+            await callback.answer(f"✅ Сервер {status_text}")
+            # Обновляем детали сервера
+            await server_details(callback)
+        else:
+            await callback.answer("❌ Ошибка при изменении статуса", show_alert=True)
+
+@router.callback_query(F.data.startswith("set_default_"))
+async def set_default_server_handler(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    server_id = int(callback.data.split("_")[2])
+    
+    async with async_session() as session:
+        success = await set_default_server(session, server_id)
+        
+        if success:
+            await callback.answer("✅ Сервер установлен как основной")
+            # Обновляем детали сервера
+            await server_details(callback)
+        else:
+            await callback.answer("❌ Ошибка при установке сервера", show_alert=True)
+
+@router.callback_query(F.data == "change_default_server")
+async def change_default_server_menu(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    async with async_session() as session:
+        servers = await get_all_servers(session)
+        active_servers = [s for s in servers if s.is_active]
+        default_server = await get_default_server(session)
+        
+        if not active_servers:
+            await callback.message.edit_text(
+                "❌ Нет активных серверов",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_servers")]]
+                )
+            )
+            await callback.answer()
+            return
+        
+        text = "🎯 Выберите сервер для новых пользователей:\n\n"
+        keyboard = []
+        
+        for server in active_servers:
+            is_current = default_server and server.id == default_server.id
+            text_prefix = "🎯 " if is_current else "   "
+            keyboard.append([
+                types.InlineKeyboardButton(
+                    text=f"{text_prefix}{server.name}",
+                    callback_data=f"set_default_{server.id}"
+                )
+            ])
+        
+        keyboard.append([types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_servers")])
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=types.InlineKeyboardMarkup(inline_keyboard=keyboard)
+        )
+        await callback.answer()
 

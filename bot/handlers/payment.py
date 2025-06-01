@@ -3,6 +3,7 @@ from aiogram.types import LabeledPrice
 from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE
 from fastapi import FastAPI, Request, Response
 from db.database import async_session
+from db.models import User
 from db.service.payment_service import create_payment, get_user_payments, get_payment_by_payment_id, \
     update_payment_status
 from db.service.user_service import get_or_create_user, get_user_by_username, update_user_balance, \
@@ -16,6 +17,7 @@ import logging
 import asyncio
 from sheets.sheets import update_payment_by_nickname, update_user_by_telegram_id
 from bot.donate_api import DonateApi
+from sqlalchemy import select
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -136,14 +138,24 @@ async def check_payment(callback: types.CallbackQuery):
                 )
 
                 if success_2:
-                    message_text = (f"✅ Подписка успешно продлена!\n\n"
-                                    f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                                    f"Ваша VPN конфигурация:\n\n"
-                                    f"```\n{user.vpn_link}\n```\n\n")
+                    # Получаем обновленного пользователя из базы
+                    updated_user_result = await session.execute(select(User).where(User.id == user.id))
+                    updated_user = updated_user_result.scalar_one_or_none()
+                    
+                    if updated_user and updated_user.vpn_link:
+                        message_text = (f"✅ Подписка успешно продлена!\n\n"
+                                        f"Ваша подписка активна до: {updated_user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                                        f"Ваша VPN конфигурация:\n\n"
+                                        f"```\n{updated_user.vpn_link}\n```\n\n")
+                    else:
+                        message_text = (f"✅ Подписка успешно продлена!\n\n"
+                                        f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                                        f"❌ Не удалось получить VPN конфигурацию. Попробуйте позже.")
                 else:
-                    message_text = ("❌ Ошибка при обновлении VPN конфигурации.\n"
+                    message_text = ("❌ Ошибка при создании VPN конфигурации.\n"
                                     "Пожалуйста, попробуйте продлить подписку в главном меню")
-                    await update_user_balance(session, username=user.username, amount=float(response['amount']))
+                    # Возвращаем деньги, так как VPN не создался
+                    user.balance += VPN_PRICE
 
                 success_keyboard = types.InlineKeyboardMarkup(
                     inline_keyboard=[
@@ -156,6 +168,8 @@ async def check_payment(callback: types.CallbackQuery):
                     ]
                 )
                 await callback.message.answer(text=message_text, reply_markup=success_keyboard)
+            else:
+                await callback.answer("Недостаточно средств на балансе для продления подписки", show_alert=True)
         else:
             await callback.answer(
                 "Проверка оплаты...\n"

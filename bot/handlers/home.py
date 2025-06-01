@@ -83,7 +83,7 @@ async def configs_callback(callback: types.CallbackQuery):
     async with async_session() as session:
         user = await get_or_create_user(session, callback.from_user)
         
-        if not user.vpn_link:
+        if not user.vpn_link and not user.trial_used:
             vpn_manager = VPNManager(session)
             vpn_link = await vpn_manager.create_vpn_config(
                 user=user,
@@ -142,42 +142,70 @@ async def process_update_sub_action(event):
         else: 
             user = await get_or_create_user(session, event.from_user)
 
-        if user.vpn_link is None:
-            return
-
-
         success = await renew_subscription(session, user.id, 30)
 
         if success:
-            # Обновляем VPN конфигурацию
+            # Обновляем VPN конфигурацию или создаем новую
             vpn_manager = VPNManager(session)
-            vpn_link = await vpn_manager.renew_subscription(
+            vpn_success = await vpn_manager.renew_subscription(
                 user=user,
                 subscription_days=30
             )
 
-
-            message_text = (
-                "✅ Подписка успешно продлена!\n\n"
-                f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                f"Ваша VPN конфигурация:\n\n"
-                f"```\n{user.vpn_link}\n```\n\n",
-
-            ) if vpn_link else (
-                "❌ Ошибка при обновлении VPN конфигурации.\n"
-                "Пожалуйста, свяжитесь с поддержкой."
-            )
-
-            success_keyboard = types.InlineKeyboardMarkup(
-                inline_keyboard=[
-                    [
-                        types.InlineKeyboardButton(
-                            text="🏠 Домой",
-                            callback_data="home"
-                        )
+            if vpn_success:
+                # Получаем обновленного пользователя из базы
+                await session.refresh(user)
+                
+                if user.vpn_link:
+                    message_text = (
+                        "✅ Подписка успешно продлена!\n\n"
+                        f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                        f"Ваша VPN конфигурация:\n\n"
+                        f"```\n{user.vpn_link}\n```\n\n"
+                    )
+                else:
+                    message_text = (
+                        "✅ Подписка продлена!\n\n"
+                        f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                        "❌ Не удалось получить VPN конфигурацию. Попробуйте позже."
+                    )
+                
+                success_keyboard = types.InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text="🏠 Домой",
+                                callback_data="home"
+                            )
+                        ]
                     ]
-                ]
-            )
+                )
+            else:
+                message_text = (
+                    "❌ Ошибка при создании VPN конфигурации.\n"
+                    "Пожалуйста, попробуйте позже или свяжитесь с поддержкой."
+                )
+                
+                # Возвращаем деньги, так как VPN не создался
+                user.balance += VPN_PRICE
+                await session.commit()
+                
+                success_keyboard = types.InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text="🔄 Попробовать снова",
+                                callback_data="update_sub"
+                            )
+                        ],
+                        [
+                            types.InlineKeyboardButton(
+                                text="🏠 Домой",
+                                callback_data="home"
+                            )
+                        ]
+                    ]
+                )
         else:
             message_text = (
                 "❌ Недостаточно средств на балансе.\n"
@@ -185,7 +213,7 @@ async def process_update_sub_action(event):
                 "⚠️ Пожалуйста, пополните баланс, чтобы продлить подписку."
             )
             
-            error_keyboard = types.InlineKeyboardMarkup(
+            success_keyboard = types.InlineKeyboardMarkup(
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
@@ -206,13 +234,13 @@ async def process_update_sub_action(event):
         if isinstance(event, types.Message):
             await event.answer(
                 message_text,
-                reply_markup=success_keyboard if success and vpn_link else error_keyboard,
+                reply_markup=success_keyboard,
                 parse_mode="Markdown"
             )
         else:  # CallbackQuery
             await event.message.edit_text(
                 message_text,
-                reply_markup=success_keyboard if success and vpn_link else error_keyboard,
+                reply_markup=success_keyboard,
                 parse_mode="Markdown"
             )
             await event.answer()

@@ -6,33 +6,16 @@ from sqlalchemy import select, update
 from datetime import datetime, timedelta
 from aiogram import Bot
 from aiogram import types
-from config.config import BOT_TOKEN
+from config.config import BOT_TOKEN, ADMIN_NAME_1, ADMIN_NAME_2
 from sheets.sheets import update_user_by_telegram_id
+from db.service.user_cleanup_service import (
+    cleanup_expired_users, get_cleanup_stats
+)
 import asyncio
 
 bot = Bot(token=BOT_TOKEN)
 scheduler = AsyncIOScheduler()
-
-async def get_remaining_subscription_days(telegram_id: int) -> int:
-    """
-    Возвращает количество оставшихся дней подписки для пользователя
-    :param telegram_id: Telegram ID пользователя
-    :return: Количество оставшихся дней подписки. Если подписка истекла, возвращает 0
-    """
-    async with async_session() as session:
-        # Находим пользователя
-        stmt = select(User).where(User.telegram_id == telegram_id)
-        result = await session.execute(stmt)
-        user = result.scalar_one_or_none()
-        
-        if not user or not user.subscription_start:
-            return 0
-            
-        # Вычисляем дату окончания подписки
-        subscription_end = user.subscription_start + timedelta(days=30)
-        remaining_days = (subscription_end - datetime.utcnow()).days
-        
-        return max(0, remaining_days)  # Возвращаем 0, если подписка истекла
+ADMINS = [ADMIN_NAME_1, ADMIN_NAME_2]
 
 async def check_expired_subscriptions():
     """Проверяет истекшие подписки"""
@@ -105,6 +88,103 @@ async def check_upcoming_expirations():
             except Exception as e:
                 print(f"Error sending message to user {user.telegram_id}: {e}")
 
+async def cleanup_vpn_servers():
+    """Автоматическая очистка VPN серверов от неактивных пользователей"""
+    print(f"🧹 Запуск автоматической очистки VPN серверов - {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}")
+    
+    async with async_session() as session:
+        try:
+            # Получаем статистику ДО очистки
+            stats_before = await get_cleanup_stats(session)
+            
+            # Выполняем очистку
+            cleanup_result = await cleanup_expired_users(session, dry_run=False)
+            
+            # Получаем статистику ПОСЛЕ очистки
+            stats_after = await get_cleanup_stats(session)
+            
+            # Формируем отчет для админов
+            report = f"🧹 **Отчет об автоматической очистке VPN серверов**\n"
+            report += f"📅 Время: {datetime.utcnow().strftime('%d.%m.%Y %H:%M:%S')}\n\n"
+            
+            report += f"📊 **Результаты очистки:**\n"
+            report += f"✅ Найдено для очистки: {cleanup_result['total_found']}\n"
+            report += f"🗑️ Успешно очищено: {cleanup_result['cleaned']}\n"
+            report += f"❌ Ошибок: {cleanup_result['errors']}\n\n"
+            
+            if cleanup_result['cleaned'] > 0:
+                report += f"👥 **Очищенные пользователи:**\n"
+                for user_info in cleanup_result['users'][:10]:  # Показываем первых 10
+                    if user_info.get('status') == 'cleaned':
+                        trial_mark = "🎯" if user_info['trial_used'] else "⭕"
+                        server_display = user_info['server_id'] if user_info['server_id'] else 'Не назначен'
+                        report += f"• @{user_info['username']} {trial_mark} (сервер {server_display})\n"
+                        report += f"  Истекла {user_info['days_since_expired']} дн. назад\n"
+                
+                if cleanup_result['cleaned'] > 10:
+                    report += f"... и еще {cleanup_result['cleaned'] - 10} пользователей\n"
+                report += "\n"
+            
+            report += f"📈 **Статистика до/после очистки:**\n"
+            report += f"👥 Всего пользователей: {stats_before['total_users']} → {stats_after['total_users']}\n"
+            report += f"✅ Активных: {stats_before['active_users']} → {stats_after['active_users']}\n"
+            report += f"🖥️ С VPN конфигами: {stats_before['users_with_vpn']} → {stats_after['users_with_vpn']}\n"
+            report += f"🗑️ Кандидатов на очистку: {stats_before['cleanup_candidates']} → {stats_after['cleanup_candidates']}\n"
+            
+            if cleanup_result['errors'] > 0:
+                report += f"\n⚠️ **Ошибки при очистке:** {cleanup_result['errors']}\n"
+                report += f"Проверьте логи для деталей."
+            
+            # Отправляем отчет всем админам
+            for admin in ADMINS:
+                if admin:  # Проверяем, что админ указан
+                    try:
+                        # Пытаемся найти telegram_id админа
+                        result = await session.execute(
+                            select(User).where(User.username == admin.replace('@', ''))
+                        )
+                        admin_user = result.scalar_one_or_none()
+                        
+                        if admin_user:
+                            await bot.send_message(
+                                admin_user.telegram_id,
+                                report,
+                                parse_mode='Markdown'
+                            )
+                            print(f"✅ Отчет отправлен админу @{admin}")
+                        else:
+                            print(f"⚠️ Админ @{admin} не найден в базе данных")
+                            
+                    except Exception as e:
+                        print(f"❌ Ошибка отправки отчета админу @{admin}: {e}")
+            
+            print(f"✅ Автоматическая очистка завершена. Очищено: {cleanup_result['cleaned']}, ошибок: {cleanup_result['errors']}")
+            
+        except Exception as e:
+            error_msg = f"❌ Ошибка при автоматической очистке VPN серверов: {e}"
+            print(error_msg)
+            
+            # Уведомляем админов об ошибке
+            for admin in ADMINS:
+                if admin:
+                    try:
+                        result = await session.execute(
+                            select(User).where(User.username == admin.replace('@', ''))
+                        )
+                        admin_user = result.scalar_one_or_none()
+                        
+                        if admin_user:
+                            await bot.send_message(
+                                admin_user.telegram_id,
+                                f"🚨 **Ошибка автоматической очистки VPN**\n\n"
+                                f"📅 Время: {datetime.utcnow().strftime('%d.%m.%Y %H:%M:%S')}\n"
+                                f"❌ Ошибка: {str(e)}\n\n"
+                                f"Требуется ручная проверка системы.",
+                                parse_mode='Markdown'
+                            )
+                    except Exception as notify_error:
+                        print(f"❌ Не удалось уведомить админа @{admin} об ошибке: {notify_error}")
+
 def start_scheduler():
     """Запускает планировщик"""
     # Проверяем истекшие подписки каждый день в полночь
@@ -120,6 +200,14 @@ def start_scheduler():
         check_upcoming_expirations,
         CronTrigger(hour=12, minute=0),
         id='check_upcoming_expirations',
+        replace_existing=True
+    )
+    
+    # Автоматическая очистка VPN серверов каждый день в 02:00
+    scheduler.add_job(
+        cleanup_vpn_servers,
+        CronTrigger(hour=2, minute=0),
+        id='cleanup_vpn_servers',
         replace_existing=True
     )
     
