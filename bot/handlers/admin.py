@@ -846,7 +846,7 @@ async def admin_servers_menu(callback: types.CallbackQuery):
                 default_mark = " 🎯" if default_server and server_data["id"] == default_server.id else ""
                 
                 text += f"{status} {server_data['name']}{default_mark}\n"
-                text += f"   ID: {server_data['id']} | URL: {server_data['url'][:30]}...\n"
+                text += f"   ID: {server_data['id']} | URL: {server_data['url'][:30]}\n"
                 text += f"   👥 Всего: {server_data['total_users']} | Активных: {server_data['active_users']}\n"
                 
                 if server_data["description"]:
