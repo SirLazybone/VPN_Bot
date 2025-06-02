@@ -2,10 +2,7 @@ import httpx
 from typing import Optional, Dict, Any, List, Union
 from config.config import API_TOKEN, API_URL
 from datetime import datetime, timedelta
-import logging
-
-# Настройка логирования
-logger = logging.getLogger(__name__)
+from bot.vpn_logger import vpn_api_logger as logger
 
 class VPNClient:
     def __init__(self, server_url: str, server_name: str = "VPN Server"):

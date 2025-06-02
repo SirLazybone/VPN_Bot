@@ -21,3 +21,6 @@ WATA_JWT_TOKEN = os.getenv("WATA_JWT_TOKEN")
 WATA_DONATE_URL = os.getenv("WATA_DONATE_URL")
 BOT_LINK = os.getenv("BOT_LINK")
 
+# Настройки отладки
+DEBUG_VPN = os.getenv("DEBUG_VPN", "false").lower() == "true"
+

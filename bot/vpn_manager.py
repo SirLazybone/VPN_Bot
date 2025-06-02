@@ -6,12 +6,8 @@ from bot.vpn_api import VPNClient
 from sheets.sheets_service import update_user_by_telegram_id
 from config.config import VPN_PRICE
 from db.service.server_service import get_server_by_id, get_default_server, get_all_servers
-import logging
+from bot.vpn_logger import vpn_manager_logger as logger
 import asyncio
-
-# Настройка логирования
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
 
 
 class VPNManager:
@@ -111,7 +107,7 @@ class VPNManager:
             user.is_active = True
             
             # Отмечаем использование пробного периода
-            if is_trial:
+            if not is_trial:
                 logger.info("🎯 Отмечаю использование пробного периода")
                 user.trial_used = True
 
