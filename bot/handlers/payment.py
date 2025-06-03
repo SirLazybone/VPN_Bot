@@ -103,9 +103,18 @@ async def check_payment(callback: types.CallbackQuery):
 
         donate_api = DonateApi()
         response = await donate_api.find_donate_url(payment_id)
+
         if response is None:
             await callback.answer(text="Что-то пошло не так...\n"
                                        "Создайте новый платёж", show_alert=True)
+            return
+
+        if response['status'] == 'Time':
+            await callback.answer(
+                "Проверка оплаты...\n"
+                "Если вы уже оплатили, но статус не обновился, подождите несколько минут и попробуйте снова.",
+                show_alert=True
+            )
             return
 
         if not payment:
@@ -167,7 +176,7 @@ async def check_payment(callback: types.CallbackQuery):
                         ]
                     ]
                 )
-                await callback.message.answer(text=message_text, reply_markup=success_keyboard)
+                await callback.message.answer(text=message_text, reply_markup=success_keyboard, parse_mode="Markdown")
             else:
                 await callback.answer("Недостаточно средств на балансе для продления подписки", show_alert=True)
         else:

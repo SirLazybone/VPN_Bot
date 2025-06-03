@@ -52,6 +52,8 @@ class DonateApi:
                     url=f'{self.base_url}/links/{wata_id}',
                     headers=self.headers
                 )
+                if response.status_code == 429:
+                    return {'status': 'Time'}
                 response.raise_for_status()
                 return response.json()
         except httpx.HTTPError as e:
