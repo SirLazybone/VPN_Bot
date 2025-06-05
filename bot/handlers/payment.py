@@ -35,11 +35,11 @@ async def show_payment_menu(callback: types.CallbackQuery):
     """
     # Суммы на основе цен подписки
     amounts = [
-        (VPN_PRICE, f"1 месяц - {VPN_PRICE} ₽"),
-        (VPN_PRICE_3, f"3 месяца - {VPN_PRICE_3} ₽ (10% скидка)"),
-        (VPN_PRICE_6, f"6 месяцев - {VPN_PRICE_6} ₽ (20% скидка)"),
+        (VPN_PRICE, f"1 месяц - {int(VPN_PRICE)} ₽"),
+        (VPN_PRICE_3, f"3 месяца - {int(VPN_PRICE_3)} ₽ (10% скидка)"),
+        (VPN_PRICE_6, f"6 месяцев - {int(VPN_PRICE_6)} ₽ (20% скидка)"),
     ]
-    text = "💳 Выберите сумму для подписки:\n\n"
+    text = "💳 Выберите срок подписки:\n\n"
     
     keyboard_rows = []
 
@@ -96,7 +96,7 @@ async def create_payment_with_amount(callback: types.CallbackQuery, amount: floa
     
     # Показываем промежуточное сообщение
     loading_message = await callback.message.edit_text(
-        f"⏳ Создаем платеж на {amount} ₽...\n"
+        f"⏳ Создаем платеж на {int(amount)} ₽...\n"
         "Это может занять несколько секунд",
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[
@@ -117,7 +117,7 @@ async def create_payment_with_amount(callback: types.CallbackQuery, amount: floa
             
             # Обновляем сообщение
             await loading_message.edit_text(
-                f"⏳ Создаем ссылку для оплаты {amount} ₽...\n"
+                f"⏳ Создаем ссылку для оплаты {int(amount)} ₽...\n"
                 "Подключаемся к платежной системе...",
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[[
@@ -285,7 +285,7 @@ async def check_payment(callback: types.CallbackQuery):
                 # Недостаточно средств даже на минимальный период
                 await callback.answer(
                     f"Платеж обработан, но недостаточно средств для продления подписки.\n"
-                    f"Баланс: {user.balance} ₽. Необходимо минимум: {VPN_PRICE} ₽.",
+                    f"Баланс: {user.balance} ₽. Необходимо минимум: {int(VPN_PRICE)} ₽.",
                     show_alert=True
                 )
                 return
