@@ -2,7 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from db.database import async_session
 from db.models import User
-from sqlalchemy import select, update
+from sqlalchemy import select, update, or_, and_
 from datetime import datetime, timedelta
 from aiogram import Bot
 from aiogram import types
@@ -20,10 +20,9 @@ ADMINS = [ADMIN_NAME_1, ADMIN_NAME_2]
 async def check_expired_subscriptions():
     """Проверяет истекшие подписки"""
     async with async_session() as session:
-        # Находим пользователей с истекшей подпиской
-        expired_date = datetime.utcnow() - timedelta(days=30)
+        now = datetime.utcnow()
         stmt = select(User).where(
-            User.subscription_start < expired_date,
+            User.subscription_end < now,
             User.is_active == True
         )
         result = await session.execute(stmt)
@@ -46,40 +45,45 @@ async def check_expired_subscriptions():
             # Деактивируем подписку
             stmt = update(User).where(User.id == user.id).values(is_active=False)
             await session.execute(stmt)
-        
-        await session.commit()
-        await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
+            await session.commit()
+            await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
+
 
 async def check_upcoming_expirations():
     """Проверяет подписки, истекающие через 1 или 2 дня и уведомляет пользователей."""
     async with async_session() as session:
         now = datetime.utcnow()
+        tomorrow_start = datetime.combine(now.date() + timedelta(days=1), datetime.min.time())
+        tomorrow_end = datetime.combine(now.date() + timedelta(days=1), datetime.max.time())
 
-        # Временные границы
-        tomorrow = now + timedelta(days=1)
-        day_after_tomorrow = now + timedelta(days=2)
+        day_after_start = datetime.combine(now.date() + timedelta(days=2), datetime.min.time())
+        day_after_end = datetime.combine(now.date() + timedelta(days=2), datetime.max.time())
 
-        stmt = select(User).where(
+        result = await session.execute(select(User).where(
             User.is_active == True,
-            User.subscription_end.in_([tomorrow.date(), day_after_tomorrow.date()])
-        )
-
-        result = await session.execute(stmt)
+            or_(
+                and_(
+                    User.subscription_end >= tomorrow_start,
+                    User.subscription_end <= tomorrow_end
+                ),
+                and_(
+                    User.subscription_end >= day_after_start,
+                    User.subscription_end <= day_after_end
+                )
+            )
+        ))
         users = result.scalars().all()
 
         for user in users:
-            days_left = (user.subscription_end.date() - now.date()).days
-            if days_left == 2:
-                message = (
-                    "⚠️ Ваша подписка истекает через 2 дня!\n\n"
-                )
-            elif days_left == 1:
+            end_date = user.subscription_end.date()
+            if end_date == (now.date() + timedelta(days=1)):
                 message = (
                     "⚠️ Ваша подписка истекает завтра!\n\n"
                 )
-            else:
-                continue  # На всякий случай
-
+            elif end_date == (now.date() + timedelta(days=2)):
+                message = (
+                    "⚠️ Ваша подписка истекает через 2 дня!\n\n"
+                )
             try:
                 await bot.send_message(user.telegram_id, message, reply_markup=types.InlineKeyboardMarkup(inline_keyboard=
                                                             [
@@ -190,7 +194,7 @@ def start_scheduler():
     # Проверяем истекшие подписки каждый день в полночь
     scheduler.add_job(
         check_expired_subscriptions,
-        CronTrigger(hour=0, minute=0),
+        CronTrigger(hour=9, minute=0),
         id='check_subscriptions',
         replace_existing=True
     )

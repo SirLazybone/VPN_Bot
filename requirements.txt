@@ -38,3 +38,5 @@ google-api-python-client
 oauth2client
 gspread
 httplib2
+pytest
+pytest-asyncio

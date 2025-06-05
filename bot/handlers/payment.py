@@ -1,6 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.types import LabeledPrice
-from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE
+from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE, TECH_SUPPORT_USERNAME
 from fastapi import FastAPI, Request, Response
 from db.database import async_session
 from db.models import User
@@ -35,60 +35,133 @@ class MockUser:
 
 @router.callback_query(F.data == "payment")
 async def process_payment(callback: types.CallbackQuery, bot):
-    async with async_session() as session:
-        user = await get_or_create_user(session, callback.from_user)
-
-        # Создаем новый платеж
-        payment = await create_payment(
-            session=session,
-            user_id=user.id,
-            nickname=user.username
+    # Сразу отвечаем пользователю, чтобы показать что запрос обрабатывается
+    await callback.answer("Создаем платеж...")
+    
+    # Показываем промежуточное сообщение
+    loading_message = await callback.message.edit_text(
+        "⏳ Создаем платеж...\n"
+        "Это может занять несколько секунд",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[
+                types.InlineKeyboardButton(text="🏠 Отмена", callback_data="home")
+            ]]
         )
-
-        donate_api = DonateApi()
-        response = await donate_api.create_donate_url(payment_id=payment.id)
-        if response is None:
-            await callback.answer(text='Не удалось создать ссылку для платежа,'
-                                       ' проблема у сервиса оплаты, попробуйте'
-                                       ' снова через како-то время', show_alert=True)
-            return
-
-        await update_payment_status(session=session, id=payment.id, payment_id=response['id'],
-                                    status=response['status'], amount=response['amount'])
-
-        keyboard = types.InlineKeyboardMarkup(
-            inline_keyboard=[
-                [
-                    types.InlineKeyboardButton(
-                        text="💳 Оплатить",
-                        url=response['url'],
+    )
+    
+    try:
+        async with async_session() as session:
+            # Быстро создаем пользователя и платеж
+            user = await get_or_create_user(session, callback.from_user)
+            payment = await create_payment(
+                session=session,
+                user_id=user.id,
+                nickname=user.username
+            )
+            
+            # Обновляем сообщение
+            await loading_message.edit_text(
+                "⏳ Создаем ссылку для оплаты...\n"
+                "Подключаемся к платежной системе...",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[
+                        types.InlineKeyboardButton(text="🏠 Отмена", callback_data="home")
+                    ]]
+                )
+            )
+            
+            donate_api = DonateApi()
+            response = await donate_api.create_donate_url(payment_id=payment.id)
+            
+            if response is None:
+                await loading_message.edit_text(
+                    "❌ Не удалось создать ссылку для платежа\n\n"
+                    "Проблема с платежной системой. Попробуйте снова через некоторое время",
+                    reply_markup=types.InlineKeyboardMarkup(
+                        inline_keyboard=[
+                            [types.InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="payment")],
+                            [types.InlineKeyboardButton(text="❓ Поддержка", url=f"https://t.me/{TECH_SUPPORT_USERNAME}")],
+                            [types.InlineKeyboardButton(text="🏠 Домой", callback_data="home")]
+                        ]
                     )
-                ],
-                [
-                    types.InlineKeyboardButton(
-                        text="✅ Проверить оплату",
-                        callback_data=f"check_payment:{payment.payment_id}"
-                    )
-                ],
-                [
-                    types.InlineKeyboardButton(
-                        text="🏠 Домой",
-                        callback_data='home'
-                    )
+                )
+                return
+
+            # Обновляем статус платежа в БД
+            await update_payment_status(
+                session=session, 
+                id=payment.id, 
+                payment_id=response['id'],
+                status=response['status'], 
+                amount=response['amount']
+            )
+
+            # Создаем финальную клавиатуру
+            keyboard = types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="💳 Оплатить",
+                            url=response['url'],
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text="✅ Проверить оплату",
+                            callback_data=f"check_payment:{payment.payment_id}"
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text='❓ Поддержка',
+                            url=f'https://t.me/{TECH_SUPPORT_USERNAME}'
+                        )
+                    ],
+                    [
+                        types.InlineKeyboardButton(
+                            text="🏠 Домой",
+                            callback_data='home'
+                        )
+                    ]
                 ]
-
-            ]
-        )
-        await callback.message.edit_text(
-            f"💳 Платеж создан!\n\n"
-            f"📌 Что нужно сделать:\n"
-            "1️⃣ Перейдите по ссылке «Оплатить»\n"
-            "2️⃣ Оплатите по СБП\n"
-            "3️⃣ Вернитесь в бота и нажмите «Проверить оплату»\n",
-            reply_markup=keyboard,
-            parse_mode="Markdown"
-        )
-        await callback.answer()
+            )
+            
+            # Финальное сообщение с результатом
+            await loading_message.edit_text(
+                f"✅ Платеж создан!\n\n"
+                f"📌 Что нужно сделать:\n"
+                "1️⃣ Перейдите по ссылке «Оплатить»\n"
+                "2️⃣ Оплатите по СБП\n"
+                "3️⃣ Вернитесь в бота и нажмите «Проверить оплату»",
+                reply_markup=keyboard,
+                parse_mode="Markdown"
+            )
+            
+    except Exception as e:
+        logger.error(f"Ошибка при создании платежа: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        
+        try:
+            await loading_message.edit_text(
+                "❌ Произошла ошибка при создании платежа\n\n"
+                "Попробуйте еще раз или обратитесь в поддержку",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[
+                        [types.InlineKeyboardButton(text="🔄 Попробовать снова", callback_data="payment")],
+                        [types.InlineKeyboardButton(text="❓ Поддержка", url=f"https://t.me/{TECH_SUPPORT_USERNAME}")],
+                        [types.InlineKeyboardButton(text="🏠 Домой", callback_data="home")]
+                    ]
+                )
+            )
+        except Exception as edit_error:
+            logger.error(f"Ошибка при редактировании сообщения об ошибке: {edit_error}")
+            # В крайнем случае отправляем новое сообщение
+            await callback.message.answer(
+                "❌ Произошла ошибка при создании платежа. Попробуйте еще раз.",
+                reply_markup=types.InlineKeyboardMarkup(
+                    inline_keyboard=[[types.InlineKeyboardButton(text="🏠 Домой", callback_data="home")]]
+                )
+            )
 
 
 @router.callback_query(F.data.startswith("check_payment:"))

@@ -13,7 +13,7 @@ router = Router()
 @router.message(Command("start"))
 async def cmd_start(message: types.Message, bot):
     async with async_session() as session:
-        if await is_user_exist(session, message.from_user.username):
+        if await is_user_exist(session, message.from_user.id):
             if await check_subscription(message.from_user.id, bot):
                 await process_home_action(message)
                 return
@@ -46,13 +46,7 @@ async def cmd_start(message: types.Message, bot):
 @router.callback_query(F.data == "check_subscription")
 async def check_subscription_callback(callback: types.CallbackQuery, bot):
     if await check_subscription(callback.from_user.id, bot):
-
-        if callback.from_user.username is None:
-            await callback.answer("Для взаимодействия с телеграмм ботом, ему необходимо видеть вам никнейм, "
-                                  "иначе у нас не получится выдать вам персональную ссылку для подключения",
-                                  show_alert=True)
-            return
-
+        
         async with async_session() as session:
             user = await get_or_create_user(session, callback.from_user)
 

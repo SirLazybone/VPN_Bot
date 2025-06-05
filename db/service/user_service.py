@@ -7,8 +7,8 @@ from sheets.sheets_service import add_user_to_sheets, update_user_by_telegram_id
 import asyncio
 
 
-async def is_user_exist(session: AsyncSession, username) -> bool:
-    result = await session.execute(select(User).where(User.username == username))
+async def is_user_exist(session: AsyncSession, telegram_id) -> bool:
+    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     return user is not None
 
@@ -18,12 +18,21 @@ async def get_or_create_user(session, user_data):
     user = result.scalar_one_or_none()
     if user:
         return user
-    new_user = User(
-        telegram_id=user_data.id,
-        username=user_data.username,
-        balance=VPN_PRICE,
-        is_active=False
-    )
+    if user_data.username is None or user_data.username == '' or len(user_data.username) < 4:
+        new_user = User(
+            telegram_id=user_data.id,
+            username=user_data.id,
+            balance=VPN_PRICE,
+            is_active=False
+        )
+    else:
+        new_user = User(
+            telegram_id=user_data.id,
+            username=user_data.username,
+            balance=VPN_PRICE,
+            is_active=False
+        )
+
     session.add(new_user)
     await session.commit()
     await asyncio.gather(add_user_to_sheets(new_user))  # добавляем пользователя в google sheets

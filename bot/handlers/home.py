@@ -7,6 +7,7 @@ from config.config import TECH_SUPPORT_USERNAME, VPN_PRICE
 from datetime import datetime
 from db.service.user_service import renew_subscription
 from bot.vpn_manager import VPNManager
+from sheets.sheets_service import update_user_by_telegram_id
 router = Router()
 
 
@@ -83,12 +84,18 @@ async def configs_callback(callback: types.CallbackQuery):
     async with async_session() as session:
         user = await get_or_create_user(session, callback.from_user)
         
-        if not user.vpn_link and not user.trial_used:
+        if (not user.vpn_link and not user.trial_used) or (not user.vpn_link and user.subscription_end and user.subscription_end > datetime.utcnow()):
             vpn_manager = VPNManager(session)
+            if user.subscription_end and user.subscription_end > datetime.utcnow():
+                subscription_days = (user.subscription_end - datetime.utcnow()).days
+            else:
+                subscription_days = 30
             vpn_link = await vpn_manager.create_vpn_config(
                 user=user,
-                subscription_days=30
+                subscription_days=subscription_days
             )
+            print("new vpn_link : ")
+            print(vpn_link)
             if not vpn_link:
                 await callback.message.edit_text(
                     "❌ Ошибка при создании VPN конфигурации.\n"
@@ -108,6 +115,7 @@ async def configs_callback(callback: types.CallbackQuery):
                     parse_mode="Markdown"
                 )
             await callback.answer()
+            await update_user_by_telegram_id(telegram_id=user.telegram_id, user=user)
             return
 
         if not user.is_active or not user.subscription_end or user.subscription_end < datetime.utcnow():
@@ -120,7 +128,7 @@ async def configs_callback(callback: types.CallbackQuery):
             )
             await callback.answer()
             return
-
+        print("Не зашли в if")
         await callback.message.edit_text(
             f"```\n{user.vpn_link}\n```\n\n"
             f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
