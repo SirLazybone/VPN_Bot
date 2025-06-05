@@ -57,7 +57,7 @@ async def update_user_balance(session: AsyncSession, username: str, amount: floa
     return True
 
 
-async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> bool:
+async def renew_subscription(session: AsyncSession, user_id: int, days: int, price: int = VPN_PRICE) -> bool:
     result = await session.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
 
@@ -66,10 +66,10 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int) -> 
     
     balance = user.balance
 
-    if balance < VPN_PRICE:
+    if balance < price:
         return False
     
-    user.balance -= VPN_PRICE
+    user.balance -= price
 
     now = datetime.utcnow()
 

@@ -15,6 +15,8 @@ API_TOKEN = os.getenv("API_TOKEN")
 API_URL = os.getenv("API_URL")
 
 VPN_PRICE = float(os.getenv("VPN_PRICE"))
+VPN_PRICE_3 = float(VPN_PRICE * 3 * 0.9).__round__(0)
+VPN_PRICE_6 = float(VPN_PRICE * 6 * 0.8).__round__(0)
 ADMIN_NAME_1 = os.getenv("ADMIN_NAME_1")
 ADMIN_NAME_2 = os.getenv("ADMIN_NAME_2")
 WATA_JWT_TOKEN = os.getenv("WATA_JWT_TOKEN")

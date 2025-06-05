@@ -1,6 +1,6 @@
 from aiogram import Router, types, F
 from aiogram.types import LabeledPrice
-from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE, TECH_SUPPORT_USERNAME
+from config.config import PAYMENT_TOKEN, DONATE_STREAM_URL, ADMIN_CHAT, VPN_PRICE, VPN_PRICE_3, VPN_PRICE_6, TECH_SUPPORT_USERNAME
 from fastapi import FastAPI, Request, Response
 from db.database import async_session
 from db.models import User
@@ -27,20 +27,76 @@ router = Router()
 webhook_router = APIRouter()
 
 
-class MockUser:
-    def __init__(self, id, username):
-        self.id = int(id)  # Ensure the ID is an integer
-        self.username = username
-
 
 @router.callback_query(F.data == "payment")
-async def process_payment(callback: types.CallbackQuery, bot):
+async def show_payment_menu(callback: types.CallbackQuery):
+    """
+    Показывает меню выбора суммы для пополнения баланса
+    """
+    # Суммы на основе цен подписки
+    amounts = [
+        (VPN_PRICE, f"1 месяц - {VPN_PRICE} ₽"),
+        (VPN_PRICE_3, f"3 месяца - {VPN_PRICE_3} ₽ (10% скидка)"),
+        (VPN_PRICE_6, f"6 месяцев - {VPN_PRICE_6} ₽ (20% скидка)"),
+    ]
+    text = "💳 Выберите сумму для подписки:\n\n"
+    
+    keyboard_rows = []
+
+    for i in range(len(amounts)):
+        row = []
+        amount_value, amount_text = amounts[i]
+        row.append(
+            types.InlineKeyboardButton(
+                text=amount_text,
+                callback_data=f"pay_amount_{amount_value}"
+            )
+        )
+        keyboard_rows.append(row)
+
+    
+    # Добавляем кнопки навигации
+    keyboard_rows.extend([
+        [
+            types.InlineKeyboardButton(
+                text="🏠 Домой",
+                callback_data="home"
+            )
+        ]
+    ])
+    
+    keyboard = types.InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+    
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pay_amount_"))
+async def process_payment_with_amount(callback: types.CallbackQuery, bot):
+    """
+    Обрабатывает создание платежа с выбранной суммой
+    """
+    # Извлекаем сумму из callback_data
+    amount_str = callback.data.split("_")[2]
+    try:
+        amount = float(amount_str)
+    except ValueError:
+        await callback.answer("❌ Неверная сумма", show_alert=True)
+        return
+
+    await create_payment_with_amount(callback, amount)
+
+
+async def create_payment_with_amount(callback: types.CallbackQuery, amount: float):
+    """
+    Создает платеж с указанной суммой
+    """
     # Сразу отвечаем пользователю, чтобы показать что запрос обрабатывается
     await callback.answer("Создаем платеж...")
     
     # Показываем промежуточное сообщение
     loading_message = await callback.message.edit_text(
-        "⏳ Создаем платеж...\n"
+        f"⏳ Создаем платеж на {amount} ₽...\n"
         "Это может занять несколько секунд",
         reply_markup=types.InlineKeyboardMarkup(
             inline_keyboard=[[
@@ -61,7 +117,7 @@ async def process_payment(callback: types.CallbackQuery, bot):
             
             # Обновляем сообщение
             await loading_message.edit_text(
-                "⏳ Создаем ссылку для оплаты...\n"
+                f"⏳ Создаем ссылку для оплаты {amount} ₽...\n"
                 "Подключаемся к платежной системе...",
                 reply_markup=types.InlineKeyboardMarkup(
                     inline_keyboard=[[
@@ -71,7 +127,8 @@ async def process_payment(callback: types.CallbackQuery, bot):
             )
             
             donate_api = DonateApi()
-            response = await donate_api.create_donate_url(payment_id=payment.id)
+            # Передаем сумму в create_donate_url
+            response = await donate_api.create_donate_url(payment_id=payment.id, amount=amount)
             
             if response is None:
                 await loading_message.edit_text(
@@ -87,13 +144,13 @@ async def process_payment(callback: types.CallbackQuery, bot):
                 )
                 return
 
-            # Обновляем статус платежа в БД
+            # Обновляем статус платежа в БД с правильной суммой
             await update_payment_status(
                 session=session, 
                 id=payment.id, 
                 payment_id=response['id'],
                 status=response['status'], 
-                amount=response['amount']
+                amount=amount  # Используем переданную сумму, а не из response
             )
 
             # Создаем финальную клавиатуру
@@ -209,14 +266,38 @@ async def check_payment(callback: types.CallbackQuery):
             await update_user_balance(session, username=user.username, amount=float(response['amount']))
             await update_payment_status(session, id=payment.id, status=response['status'])
 
-            success = await renew_subscription(session, user.id, 30)
+            # Определяем период подписки автоматически по пополненному балансу
+            await session.refresh(user)  # Обновляем данные пользователя
+            
+            if user.balance >= VPN_PRICE_6:
+                period_months = 6
+                price = VPN_PRICE_6
+                period_text = "6 месяцев"
+            elif user.balance >= VPN_PRICE_3:
+                period_months = 3
+                price = VPN_PRICE_3
+                period_text = "3 месяца"
+            elif user.balance >= VPN_PRICE:
+                period_months = 1
+                price = VPN_PRICE
+                period_text = "1 месяц"
+            else:
+                # Недостаточно средств даже на минимальный период
+                await callback.answer(
+                    f"Платеж обработан, но недостаточно средств для продления подписки.\n"
+                    f"Баланс: {user.balance} ₽. Необходимо минимум: {VPN_PRICE} ₽.",
+                    show_alert=True
+                )
+                return
+            old_sub_end = user.subscription_end
+            success = await renew_subscription(session, user.id, period_months * 30, price)
 
             if success:
                 # Обновляем VPN конфигурацию
                 vpn_manager = VPNManager(session)
                 success_2 = await vpn_manager.renew_subscription(
                     user=user,
-                    subscription_days=30
+                    subscription_days=period_months * 30
                 )
 
                 if success_2:
@@ -225,22 +306,40 @@ async def check_payment(callback: types.CallbackQuery):
                     updated_user = updated_user_result.scalar_one_or_none()
                     
                     if updated_user and updated_user.vpn_link:
-                        message_text = (f"✅ Подписка успешно продлена!\n\n"
-                                        f"Ваша подписка активна до: {updated_user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                                        f"Ваша VPN конфигурация:\n\n"
-                                        f"```\n{updated_user.vpn_link}\n```\n\n")
+                        message_text = (
+                            f"✅ Подписка успешно продлена!\n\n"
+                            f"📅 Период: {period_text}\n"
+                            f"Подписка активна до: {updated_user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                            f"Ваша VPN конфигурация:\n\n"
+                            f"```\n{updated_user.vpn_link}\n```"
+                        )
                     else:
-                        message_text = (f"✅ Подписка успешно продлена!\n\n"
-                                        f"Ваша подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                                        f"❌ Не удалось получить VPN конфигурацию. Попробуйте позже.")
+                        message_text = (
+                            f"✅ Подписка продлена!\n\n"
+                            f"📅 Период: {period_text}\n"
+                            f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                            f"❌ Не удалось получить VPN конфигурацию. Попробуйте позже в разделе 'Мои ключи'."
+                        )
                 else:
-                    message_text = ("❌ Ошибка при создании VPN конфигурации.\n"
-                                    "Пожалуйста, попробуйте продлить подписку в главном меню")
-                    # Возвращаем деньги, так как VPN не создался
-                    user.balance += VPN_PRICE
+                    # VPN не создался - возвращаем деньги
+                    user.balance += price
+                    user.subscription_end = old_sub_end
+                    await session.commit()
+                    
+                    message_text = (
+                        f"❌ Ошибка при обновлении/создании VPN конфигурации.\n\n"
+                        f"💰 Деньги возвращены на баланс: {price} ₽.\n"
+                        "Пожалуйста, попробуйте продлить подписку через главное меню \"Продлить подписку\"."
+                    )
 
                 success_keyboard = types.InlineKeyboardMarkup(
                     inline_keyboard=[
+                        [
+                            types.InlineKeyboardButton(
+                                text="💳 Продлить подписку",
+                                callback_data="update_sub"
+                            )
+                        ],
                         [
                             types.InlineKeyboardButton(
                                 text="🏠 Домой",
@@ -251,7 +350,7 @@ async def check_payment(callback: types.CallbackQuery):
                 )
                 await callback.message.answer(text=message_text, reply_markup=success_keyboard, parse_mode="Markdown")
             else:
-                await callback.answer("Недостаточно средств на балансе для продления подписки", show_alert=True)
+                await callback.answer("Ошибка при продлении подписки", show_alert=True)
         else:
             await callback.answer(
                 "Проверка оплаты...\n"
