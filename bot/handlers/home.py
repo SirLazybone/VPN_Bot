@@ -25,7 +25,7 @@ async def process_home_action(event):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
-            [InlineKeyboardButton(text='✉️ Реферальная программа', callback_data="ref")],
+            [InlineKeyboardButton(text='✉️ Пригласить друзей', callback_data="ref")],
             [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
@@ -68,7 +68,7 @@ async def new_home_message(callback: types.CallbackQuery):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
-            [InlineKeyboardButton(text='✉️ Реферальная программа', callback_data="ref")],
+            [InlineKeyboardButton(text='✉️ Пригласить друзей', callback_data="ref")],
             [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
@@ -385,10 +385,8 @@ async def process_update_sub_action(event, period_months, price):
 
 @router.callback_query(F.data == 'ref')
 async def show_ref_menu(callback: types.CallbackQuery):
-    await callback.message.edit_text(text="В нашем боте действует реферальная система\n"
-                                          "Приведи друга, получи 15 дней подписки бесплатно!\n"
-                                          f"Что нужно сделать: отправьте специальную ссылку"
-                                          f" другому человеку и пусть он зарегистрируется\n\n"
+    await callback.message.edit_text(text="🗓 Приглашай друзей и получай за каждого 14 дней бесплатного использования!\n\n"
+                                          "👇🏻 Скопируй ссылку ниже и поделись с друзьями\n"
                                           f"{await generate_ref_url(callback.from_user.id)}",
                                      reply_markup=types.InlineKeyboardMarkup(
                                          inline_keyboard=[
