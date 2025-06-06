@@ -457,4 +457,4 @@ async def reassign_users_to_server(
         raise e
     finally:
         # Закрываем сессию бота
-        await bot.session.close() 
+        await bot.session.close()

@@ -3,7 +3,6 @@ from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import User
 from bot.vpn_api import VPNClient
-from sheets.sheets_service import update_user_by_telegram_id
 from config.config import VPN_PRICE
 from db.service.server_service import get_server_by_id, get_default_server, get_all_servers
 from bot.vpn_logger import vpn_manager_logger as logger
@@ -113,9 +112,6 @@ class VPNManager:
 
             logger.info("💾 Сохраняю изменения в базу данных...")
             await self.db.commit()
-            
-            logger.info("📊 Синхронизирую с Google Sheets...")
-            await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
 
             logger.info(f"🎉 VPN конфигурация успешно создана для {user.username}")
             return vpn_link

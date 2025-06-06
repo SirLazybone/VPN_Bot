@@ -3,7 +3,6 @@ from db.models import User
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from config.config import VPN_PRICE
-from sheets.sheets_service import add_user_to_sheets, update_user_by_telegram_id
 import asyncio
 
 
@@ -35,7 +34,6 @@ async def get_or_create_user(session, user_data):
 
     session.add(new_user)
     await session.commit()
-    await asyncio.gather(add_user_to_sheets(new_user))  # добавляем пользователя в google sheets
     return new_user
 
 async def get_user_by_username(session: AsyncSession, username: str) -> User:
@@ -43,6 +41,9 @@ async def get_user_by_username(session: AsyncSession, username: str) -> User:
     result = await session.execute(select(User).where(User.username == username))
     return result.scalar_one_or_none()
 
+async def get_user_by_telegram_id(session: AsyncSession, telegram_id) -> User:
+    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
+    return result.scalar_one_or_none()
 
 
 async def update_user_balance(session: AsyncSession, username: str, amount: float) -> bool:
@@ -53,7 +54,6 @@ async def update_user_balance(session: AsyncSession, username: str, amount: floa
     
     user.balance += amount
     await session.commit()
-    await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
     return True
 
 
@@ -63,13 +63,12 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int, pri
 
     if not user:
         return False
-    
-    balance = user.balance
 
-    if balance < price:
-        return False
-    
-    user.balance -= price
+    if price != 0:
+        balance = user.balance
+        if balance < price:
+            return False
+        user.balance -= price
 
     now = datetime.utcnow()
 
@@ -80,7 +79,6 @@ async def renew_subscription(session: AsyncSession, user_id: int, days: int, pri
     user.is_active = True
 
     await session.commit()
-    await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
     return True
 
 

@@ -6,6 +6,7 @@ from db.service.user_service import get_or_create_user, get_user_by_username
 from bot.vpn_manager import VPNManager
 from config.config import TECH_SUPPORT_USERNAME
 from typing import Optional
+import asyncio
 
 router = Router()
 
@@ -50,6 +51,14 @@ async def process_vpn_config(
             await callback.answer()
             return
 
+        # Показываем временное сообщение о создании конфигурации
+        await callback.answer("⏳ Создаем VPN конфигурацию...")
+        
+        await callback.message.edit_text(
+            "🔧 Создаем вашу VPN конфигурацию...\n\n"
+            "⏳ Пожалуйста, подождите несколько секунд"
+        )
+
         vpn_manager = VPNManager(session)
         vpn_link = await vpn_manager.create_vpn_config(
             user=user,
@@ -67,15 +76,12 @@ async def process_vpn_config(
         else:
             await callback.message.edit_text(
                 "❌ Ошибка при создании VPN конфигурации.\n"
-                "Попробуйте чуть позже в разделе \"Мои ключи\"\n"
-                "Если не получится, свяжитесь с поддержкой.",
+                "Попробуйте чуть позже в разделе \"Мои ключи\"\n",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data=callback.data)],
                     [InlineKeyboardButton(text="🏠 Домой", callback_data='home')],
-                    [InlineKeyboardButton(text="Техподдержка", url=f'https://t.me/{TECH_SUPPORT_USERNAME}')]
                 ])
             )
-
-        await callback.answer()
 
 
 @router.callback_query(F.data == "ios")

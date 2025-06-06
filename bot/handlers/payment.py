@@ -15,7 +15,6 @@ from datetime import datetime, timedelta
 import traceback
 import logging
 import asyncio
-from sheets.sheets_service import update_payment_by_nickname, update_user_by_telegram_id
 from bot.donate_api import DonateApi
 from sqlalchemy import select
 
@@ -289,6 +288,7 @@ async def check_payment(callback: types.CallbackQuery):
                     show_alert=True
                 )
                 return
+            was_active = user.is_active
             old_sub_end = user.subscription_end
             success = await renew_subscription(session, user.id, period_months * 30, price)
 
@@ -324,6 +324,7 @@ async def check_payment(callback: types.CallbackQuery):
                     # VPN не создался - возвращаем деньги
                     user.balance += price
                     user.subscription_end = old_sub_end
+                    user.is_active = was_active
                     await session.commit()
                     
                     message_text = (

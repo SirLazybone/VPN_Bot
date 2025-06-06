@@ -42,7 +42,10 @@ async def add_user_to_sheets(user: User):
         str(user.server_id) if user.server_id else "",
         str(user.trial_used)
     ]
-    sheet_users.append_row(row)
+    try:
+        sheet_users.append_row(row)
+    except Exception as e:
+        print("Не удалось записать в Гугл таблицу")
 
 
 async def update_user_by_telegram_id(telegram_id, user: User):
@@ -50,13 +53,16 @@ async def update_user_by_telegram_id(telegram_id, user: User):
     records = sheet_users.get_all_records()
     for idx, record in enumerate(records, start=2):
         if str(record['telegram_id']) == str(telegram_id):
-            sheet_users.update([[str(user.balance)]], f'D{idx}')
-            sheet_users.update([[str(user.subscription_start)]], f'F{idx}')
-            sheet_users.update([[str(user.subscription_end)]], f'G{idx}')
-            sheet_users.update([[str(user.is_active)]], f'H{idx}')
-            sheet_users.update([[str(user.vpn_link or "")]], f'I{idx}')
-            sheet_users.update([[str(user.server_id) if user.server_id else ""]], f'J{idx}')
-            sheet_users.update([[str(user.trial_used)]], f'K{idx}')
+            try:
+                sheet_users.update([[str(user.balance)]], f'D{idx}')
+                sheet_users.update([[str(user.subscription_start)]], f'F{idx}')
+                sheet_users.update([[str(user.subscription_end)]], f'G{idx}')
+                sheet_users.update([[str(user.is_active)]], f'H{idx}')
+                sheet_users.update([[str(user.vpn_link or "")]], f'I{idx}')
+                sheet_users.update([[str(user.server_id) if user.server_id else ""]], f'J{idx}')
+                sheet_users.update([[str(user.trial_used)]], f'K{idx}')
+            except Exception as e:
+                print("Не удалось обновить в Гугл таблицу")
 
 
 async def update_user_by_id(user_id, user: User):
@@ -64,25 +70,19 @@ async def update_user_by_id(user_id, user: User):
     records = sheet_users.get_all_records()
     for idx, record in enumerate(records, start=2):
         if str(record['id']) == str(user_id):
-            sheet_users.update([[str(user.telegram_id)]], f'B{idx}')
-            sheet_users.update([[str(user.username)]], f'C{idx}')
-            sheet_users.update([[str(user.balance)]], f'D{idx}')
-            sheet_users.update([[str(user.created_at)]], f'E{idx}')
-            sheet_users.update([[str(user.subscription_start)]], f'F{idx}')
-            sheet_users.update([[str(user.subscription_end)]], f'G{idx}')
-            sheet_users.update([[str(user.is_active)]], f'H{idx}')
-            sheet_users.update([[str(user.vpn_link or "")]], f'I{idx}')
-            sheet_users.update([[str(user.server_id) if user.server_id else ""]], f'J{idx}')
-            sheet_users.update([[str(user.trial_used)]], f'K{idx}')
-
-
-async def delete_user(telegram_id):
-    """Удаляет пользователя из Google Sheets"""
-    try:
-        cell = sheet_users.find(telegram_id, in_column=2)
-        sheet_users.delete_rows(cell.row)
-    except:
-        print(f"Username '{telegram_id}' не найден.")
+            try:
+                sheet_users.update([[str(user.telegram_id)]], f'B{idx}')
+                sheet_users.update([[str(user.username)]], f'C{idx}')
+                sheet_users.update([[str(user.balance)]], f'D{idx}')
+                sheet_users.update([[str(user.created_at)]], f'E{idx}')
+                sheet_users.update([[str(user.subscription_start)]], f'F{idx}')
+                sheet_users.update([[str(user.subscription_end)]], f'G{idx}')
+                sheet_users.update([[str(user.is_active)]], f'H{idx}')
+                sheet_users.update([[str(user.vpn_link or "")]], f'I{idx}')
+                sheet_users.update([[str(user.server_id) if user.server_id else ""]], f'J{idx}')
+                sheet_users.update([[str(user.trial_used)]], f'K{idx}')
+            except Exception as e:
+                print("Не удалось обновить в Гугл таблицу")
 
 
 # ======================== SERVER FUNCTIONS ========================
@@ -98,7 +98,10 @@ async def add_server_to_sheets(server: Server):
         str(server.created_at),
         server.description or ""
     ]
-    sheet_servers.append_row(row)
+    try:
+        sheet_servers.append_row(row)
+    except:
+        print("Не удалось добавить в гугл таблицу")
 
 
 async def update_server_by_id(server_id, server: Server):
@@ -106,12 +109,15 @@ async def update_server_by_id(server_id, server: Server):
     records = sheet_servers.get_all_records()
     for idx, record in enumerate(records, start=2):
         if str(record['id']) == str(server_id):
-            sheet_servers.update([[str(server.name)]], f'B{idx}')
-            sheet_servers.update([[str(server.url)]], f'C{idx}')
-            sheet_servers.update([[str(server.is_active)]], f'D{idx}')
-            sheet_servers.update([[str(server.is_default)]], f'E{idx}')
-            sheet_servers.update([[str(server.created_at)]], f'F{idx}')
-            sheet_servers.update([[str(server.description or "")]], f'G{idx}')
+            try:
+                sheet_servers.update([[str(server.name)]], f'B{idx}')
+                sheet_servers.update([[str(server.url)]], f'C{idx}')
+                sheet_servers.update([[str(server.is_active)]], f'D{idx}')
+                sheet_servers.update([[str(server.is_default)]], f'E{idx}')
+                sheet_servers.update([[str(server.created_at)]], f'F{idx}')
+                sheet_servers.update([[str(server.description or "")]], f'G{idx}')
+            except:
+                print("Не удалось обновить гугл таблицу")
 
 
 async def delete_server_by_id(server_id):
@@ -164,7 +170,10 @@ async def add_payment_to_sheets(payment: Payment):
         str(payment.message),
         str(payment.pay_system)
     ]
-    sheet_payments.append_row(row)
+    try:
+        sheet_payments.append_row(row)
+    except:
+        print("Не удалось добавить в гугл таблицу")
 
 
 async def update_payment_by_nickname(nickname, payment: Payment):
@@ -172,12 +181,15 @@ async def update_payment_by_nickname(nickname, payment: Payment):
     records = sheet_payments.get_all_records()
     for idx, record in enumerate(records, start=2):
         if str(record['nickname']) == str(nickname):
-            sheet_payments.update([[str(payment.status)]], f'E{idx}')
-            sheet_payments.update([[str(payment.amount)]], f'C{idx}')
-            sheet_payments.update([[str(payment.payment_id)]], f'D{idx}')
-            sheet_payments.update([[str(payment.completed_at)]], f'G{idx}')
-            sheet_payments.update([[str(payment.message)]], f'I{idx}')
-            sheet_payments.update([[str(payment.pay_system)]], f'J{idx}')
+            try:
+                sheet_payments.update([[str(payment.status)]], f'E{idx}')
+                sheet_payments.update([[str(payment.amount)]], f'C{idx}')
+                sheet_payments.update([[str(payment.payment_id)]], f'D{idx}')
+                sheet_payments.update([[str(payment.completed_at)]], f'G{idx}')
+                sheet_payments.update([[str(payment.message)]], f'I{idx}')
+                sheet_payments.update([[str(payment.pay_system)]], f'J{idx}')
+            except:
+                print("Не удалось обновить гугл таблицу")
 
 
 async def update_payment_by_id(id, payment: Payment):
@@ -185,12 +197,15 @@ async def update_payment_by_id(id, payment: Payment):
     records = sheet_payments.get_all_records()
     for idx, record in enumerate(records, start=2):
         if str(record['id']) == str(id):
-            sheet_payments.update([[str(payment.status)]], f'E{idx}')
-            sheet_payments.update([[str(payment.amount)]], f'C{idx}')
-            sheet_payments.update([[str(payment.payment_id)]], f'D{idx}')
-            sheet_payments.update([[str(payment.completed_at)]], f'G{idx}')
-            sheet_payments.update([[str(payment.message)]], f'I{idx}')
-            sheet_payments.update([[str(payment.pay_system)]], f'J{idx}')
+            try:
+                sheet_payments.update([[str(payment.status)]], f'E{idx}')
+                sheet_payments.update([[str(payment.amount)]], f'C{idx}')
+                sheet_payments.update([[str(payment.payment_id)]], f'D{idx}')
+                sheet_payments.update([[str(payment.completed_at)]], f'G{idx}')
+                sheet_payments.update([[str(payment.message)]], f'I{idx}')
+                sheet_payments.update([[str(payment.pay_system)]], f'J{idx}')
+            except:
+                print("Не удалось обновить гугл таблицу")
 
 
 # ======================== UTILITY FUNCTIONS ========================

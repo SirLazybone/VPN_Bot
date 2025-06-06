@@ -42,9 +42,7 @@ class SheetsSync:
     def clear_sheet(self, sheet, sheet_name):
         """Очищает лист полностью"""
         try:
-            print(f"🧹 Очищаю лист '{sheet_name}'...")
             sheet.clear()
-            print(f"✅ Лист '{sheet_name}' очищен")
         except Exception as e:
             print(f"❌ Ошибка при очистке листа '{sheet_name}': {e}")
             raise
@@ -52,30 +50,23 @@ class SheetsSync:
     def setup_headers(self, sheet, headers, sheet_name):
         """Устанавливает заголовки для листа"""
         try:
-            print(f"📝 Устанавливаю заголовки для '{sheet_name}'...")
             sheet.append_row(headers)
             # Делаем заголовки жирными
-            sheet.format('A1:Z1', {'textFormat': {'bold': True}})
-            print(f"✅ Заголовки для '{sheet_name}' установлены")
         except Exception as e:
-            print(f"❌ Ошибка при установке заголовков для '{sheet_name}': {e}")
             raise
 
     async def sync_users(self):
         """Синхронизирует всех пользователей"""
-        print("\n👥 Синхронизация пользователей...")
-        
+
         async with async_session() as session:
             # Получаем всех пользователей
             result = await session.execute(select(User).order_by(User.id))
             users = result.scalars().all()
             
             if not users:
-                print("📭 Пользователи не найдены")
                 return
                 
-            print(f"📊 Найдено пользователей: {len(users)}")
-            
+
             # Очищаем и устанавливаем заголовки
             self.clear_sheet(sheet_users, "Users")
             self.setup_headers(sheet_users, self.headers_users, "Users")
@@ -100,32 +91,26 @@ class SheetsSync:
             
             # Массовая запись всех пользователей
             if rows_data:
-                print(f"📝 Записываю {len(rows_data)} пользователей...")
-                
+
                 # Записываем пачками по 100 строк для избежания лимитов API
                 batch_size = 100
                 for i in range(0, len(rows_data), batch_size):
                     batch = rows_data[i:i + batch_size]
                     sheet_users.append_rows(batch)
-                    print(f"   ✅ Записано {min(i + batch_size, len(rows_data))}/{len(rows_data)} пользователей")
-                
-                print("✅ Все пользователи синхронизированы")
+
 
     async def sync_payments(self):
         """Синхронизирует все платежи"""
-        print("\n💳 Синхронизация платежей...")
-        
+
         async with async_session() as session:
             # Получаем все платежи
             result = await session.execute(select(Payment).order_by(Payment.id))
             payments = result.scalars().all()
             
             if not payments:
-                print("📭 Платежи не найдены")
                 return
                 
-            print(f"📊 Найдено платежей: {len(payments)}")
-            
+
             # Очищаем и устанавливаем заголовки
             self.clear_sheet(sheet_payments, "Payments")
             self.setup_headers(sheet_payments, self.headers_payments, "Payments")
@@ -149,21 +134,17 @@ class SheetsSync:
             
             # Массовая запись всех платежей
             if rows_data:
-                print(f"📝 Записываю {len(rows_data)} платежей...")
-                
+
                 # Записываем пачками по 100 строк
                 batch_size = 100
                 for i in range(0, len(rows_data), batch_size):
                     batch = rows_data[i:i + batch_size]
                     sheet_payments.append_rows(batch)
-                    print(f"   ✅ Записано {min(i + batch_size, len(rows_data))}/{len(rows_data)} платежей")
-                
-                print("✅ Все платежи синхронизированы")
+
 
     async def sync_servers(self):
         """Синхронизирует все серверы"""
-        print("\n🖥️  Синхронизация серверов...")
-        
+
         async with async_session() as session:
             # Получаем все серверы
             result = await session.execute(select(Server).order_by(Server.id))
@@ -173,8 +154,7 @@ class SheetsSync:
                 print("📭 Серверы не найдены")
                 return
                 
-            print(f"📊 Найдено серверов: {len(servers)}")
-            
+
             # Очищаем и устанавливаем заголовки
             self.clear_sheet(sheet_servers, "Servers")
             self.setup_headers(sheet_servers, self.headers_servers, "Servers")
@@ -195,14 +175,11 @@ class SheetsSync:
             
             # Массовая запись всех серверов
             if rows_data:
-                print(f"📝 Записываю {len(rows_data)} серверов...")
                 sheet_servers.append_rows(rows_data)
-                print("✅ Все серверы синхронизированы")
 
     async def get_database_stats(self):
         """Получает статистику базы данных"""
-        print("\n📊 Статистика базы данных:")
-        
+
         async with async_session() as session:
             # Пользователи
             users_result = await session.execute(select(User))
@@ -223,17 +200,10 @@ class SheetsSync:
             # Серверы
             servers_result = await session.execute(select(Server))
             servers_count = len(servers_result.scalars().all())
-            
-            print(f"   👥 Всего пользователей: {users_count}")
-            print(f"   ✅ Активных пользователей: {active_users_count}")
-            print(f"   🔐 Пользователей с VPN: {vpn_users_count}")
-            print(f"   💳 Всего платежей: {payments_count}")
-            print(f"   🖥️  Всего серверов: {servers_count}")
+
 
     async def full_sync(self):
         """Выполняет полную синхронизацию"""
-        print("🚀 Начинаю полную синхронизацию базы данных с Google Sheets...")
-        print(f"🕐 Время начала: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
         
         try:
             # Показываем статистику
@@ -243,10 +213,7 @@ class SheetsSync:
             await self.sync_users()
             await self.sync_payments()
             await self.sync_servers()
-            
-            print(f"\n🎉 Синхронизация завершена успешно!")
-            print(f"🕐 Время завершения: {datetime.now().strftime('%d.%m.%Y %H:%M:%S')}")
-            print(f"📊 Google Sheets: https://docs.google.com/spreadsheets/d/{spreadsheets_id}")
+
             
         except Exception as e:
             print(f"\n❌ Ошибка при синхронизации: {e}")

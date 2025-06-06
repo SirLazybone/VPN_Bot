@@ -3,11 +3,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
 from db.database import async_session
 from db.service.user_service import get_or_create_user
-from config.config import TECH_SUPPORT_USERNAME, VPN_PRICE, VPN_PRICE_3, VPN_PRICE_6
+from config.config import TECH_SUPPORT_USERNAME, VPN_PRICE, VPN_PRICE_3, VPN_PRICE_6, VPN_PRICE_REF
 from datetime import datetime
 from db.service.user_service import renew_subscription, is_user_exist
 from bot.vpn_manager import VPNManager
-from sheets.sheets_service import update_user_by_telegram_id
+from bot.utils import generate_ref_url
+import asyncio
 router = Router()
 
 
@@ -24,6 +25,7 @@ async def process_home_action(event):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
+            [InlineKeyboardButton(text='✉️ Реферальная программа', callback_data="ref")],
             [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
@@ -66,6 +68,7 @@ async def new_home_message(callback: types.CallbackQuery):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
+            [InlineKeyboardButton(text='✉️ Реферальная программа', callback_data="ref")],
             [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
@@ -117,7 +120,6 @@ async def configs_callback(callback: types.CallbackQuery):
                     parse_mode="Markdown"
                 )
             await callback.answer()
-            await update_user_by_telegram_id(telegram_id=user.telegram_id, user=user)
             return
 
         if not user.is_active or not user.subscription_end or user.subscription_end < datetime.utcnow():
@@ -162,6 +164,10 @@ async def update_subscription_auto(callback: types.CallbackQuery):
             period_months = 1
             price = VPN_PRICE
             period_text = "1 месяц"
+        elif user.balance >= VPN_PRICE_REF:
+            period_months = 0.5
+            price = VPN_PRICE_REF
+            period_text = "15 дней"
         else:
             # Недостаточно средств даже на 1 месяц
             await callback.message.edit_text(
@@ -220,8 +226,16 @@ async def confirm_subscription(callback: types.CallbackQuery):
     """
     # Извлекаем период и цену из callback_data
     parts = callback.data.split("_")
-    period_months = int(parts[2])
+    period_months = float(parts[2])
     price = float(parts[3])
+    
+    # Показываем временное сообщение
+    await callback.answer("⏳ Обрабатываем продление подписки...")
+        
+    await callback.message.edit_text(
+        "🔧 Обрабатываем ваше продление подписки...\n\n"
+        "⏳ Пожалуйста, подождите, создаем VPN конфигурацию"
+    )
     
     await process_update_sub_action(callback, period_months, price)
 
@@ -237,6 +251,7 @@ async def process_update_sub_action(event, period_months, price):
             user = await get_or_create_user(session, event.from_user)
 
         # Списываем деньги и продлеваем подписку
+        was_active = user.is_active
         old_sub_end = user.subscription_end
         success = await renew_subscription(session, user.id, period_months * 30, price)
 
@@ -288,11 +303,11 @@ async def process_update_sub_action(event, period_months, price):
                 # VPN не создался - возвращаем деньги
                 user.balance += price
                 user.subscription_end = old_sub_end
+                user.is_active = was_active
                 await session.commit()
                 
                 message_text = (
                     "❌ Ошибка при создании VPN конфигурации.\n\n"
-                    f"💰 Деньги возвращены на баланс: {price} ₽.\n"
                     "Пожалуйста, попробуйте позже или свяжитесь с поддержкой."
                 )
                 
@@ -368,5 +383,18 @@ async def process_update_sub_action(event, period_months, price):
 # async def update_sub_command(message: types.Message):
 #     await process_update_sub_action(message)
 
+@router.callback_query(F.data == 'ref')
+async def show_ref_menu(callback: types.CallbackQuery):
+    await callback.message.edit_text(text="В нашем боте действует реферальная система\n"
+                                          "Приведи друга, получи 15 дней подписки бесплатно!\n"
+                                          f"Что нужно сделать: отправьте специальную ссылку"
+                                          f" другому человеку и пусть он зарегистрируется\n\n"
+                                          f"{await generate_ref_url(callback.from_user.id)}",
+                                     reply_markup=types.InlineKeyboardMarkup(
+                                         inline_keyboard=[
+                                            [types.InlineKeyboardButton(text="🏠 Домой", callback_data='home')]
+                                        ]
+                                     )
+                                     )
 
 

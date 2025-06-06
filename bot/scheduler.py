@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from aiogram import Bot
 from aiogram import types
 from config.config import BOT_TOKEN, ADMIN_NAME_1, ADMIN_NAME_2
-from sheets.sheets_service import update_user_by_telegram_id
 from db.service.user_cleanup_service import (
     cleanup_expired_users, get_cleanup_stats
 )
@@ -46,7 +45,6 @@ async def check_expired_subscriptions():
             stmt = update(User).where(User.id == user.id).values(is_active=False)
             await session.execute(stmt)
             await session.commit()
-            await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
 
 
 async def check_upcoming_expirations():

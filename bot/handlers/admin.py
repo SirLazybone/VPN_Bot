@@ -8,7 +8,6 @@ from db.database import async_session
 from db.models import User, Payment, Server
 from bot.handlers.home import process_home_action
 from bot.vpn_manager import VPNManager
-from sheets.sheets_service import update_user_by_telegram_id
 from config.config import ADMIN_NAME_1, ADMIN_NAME_2, BOT_TOKEN
 from db.service.server_service import (
     get_all_servers, get_server_by_id, create_server, 
@@ -61,6 +60,9 @@ async def admin_handler(message: types.Message):
                 types.InlineKeyboardButton(text="🖥️ Управление серверами", callback_data="admin_servers")
             ],
             [
+                types.InlineKeyboardButton(text="📊 Синхронизация Google Sheets", callback_data="admin_sync_sheets")
+            ],
+            [
                 types.InlineKeyboardButton(text="✉️ Отправить сообщение всем пользователям", callback_data="init_mailing")
             ],
             [
@@ -87,6 +89,9 @@ async def admin_panel(callback: types.CallbackQuery):
             ],
             [
                 types.InlineKeyboardButton(text="🖥️ Управление серверами", callback_data="admin_servers")
+            ],
+            [
+                types.InlineKeyboardButton(text="📊 Синхронизация Google Sheets", callback_data="admin_sync_sheets")
             ],
             [
                 types.InlineKeyboardButton(text="✉️ Отправить сообщение всем пользователям", callback_data="init_mailing")
@@ -401,7 +406,6 @@ async def edit_balance_process(message: types.Message, state: FSMContext):
             return
         
         user.balance = new_balance
-        await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
         await session.commit()
         
         await state.clear()
@@ -485,7 +489,6 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
             # Получаем обновленного пользователя для получения актуальной VPN ссылки
             await session.refresh(user)
             
-        await asyncio.gather(update_user_by_telegram_id(user.telegram_id, user))
         await session.commit()
 
         await state.clear()
@@ -1750,4 +1753,250 @@ async def confirm_force_delete(message: types.Message, state: FSMContext):
         )
     
     await state.clear()
+
+@router.callback_query(F.data == "admin_sync_sheets")
+async def admin_sync_sheets_menu(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    # Получаем статистику БД для отображения
+    async with async_session() as session:
+        # Пользователи
+        users_result = await session.execute(select(User))
+        users_count = len(users_result.scalars().all())
+        
+        # Активные пользователи
+        active_users_result = await session.execute(select(User).where(User.is_active == True))
+        active_users_count = len(active_users_result.scalars().all())
+        
+        # Платежи
+        payments_result = await session.execute(select(Payment))
+        payments_count = len(payments_result.scalars().all())
+        
+        # Серверы
+        servers_result = await session.execute(select(Server))
+        servers_count = len(servers_result.scalars().all())
+    
+    text = "📊 Синхронизация с Google Sheets\n\n"
+    text += "📈 Текущая статистика базы данных:\n"
+    text += f"👥 Всего пользователей: {users_count}\n"
+    text += f"✅ Активных пользователей: {active_users_count}\n"
+    text += f"💳 Всего платежей: {payments_count}\n"
+    text += f"🖥️ Всего серверов: {servers_count}\n\n"
+    text += "⚠️ Внимание: Синхронизация полностью очистит Google Sheets и запишет все данные заново"
+    
+    keyboard = types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(text="🚀 Запустить полную синхронизацию", callback_data="start_full_sync")
+            ],
+            [
+                types.InlineKeyboardButton(text="👥 Синхронизировать только пользователей", callback_data="sync_users_only")
+            ],
+            [
+                types.InlineKeyboardButton(text="💳 Синхронизировать только платежи", callback_data="sync_payments_only")
+            ],
+            [
+                types.InlineKeyboardButton(text="🖥️ Синхронизировать только серверы", callback_data="sync_servers_only")
+            ],
+            [
+                types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_panel")
+            ]
+        ]
+    )
+    
+    await callback.message.edit_text(text, reply_markup=keyboard)
+    await callback.answer()
+
+@router.callback_query(F.data == "start_full_sync")
+async def start_full_sync_handler(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer("🚀 Запускаю полную синхронизацию...")
+    
+    # Показываем индикатор загрузки
+    await callback.message.edit_text(
+        "🔄 Выполняется полная синхронизация с Google Sheets...\n\n"
+        "⏳ Это может занять несколько минут\n"
+        "📊 Синхронизируются: пользователи, платежи, серверы",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад (отменить невозможно)", callback_data="admin_sync_sheets")]]
+        )
+    )
+    
+    # Запускаем синхронизацию в фоне
+    asyncio.create_task(perform_full_sync_task(callback.message.chat.id, callback.message.message_id))
+
+@router.callback_query(F.data == "sync_users_only")
+async def sync_users_only_handler(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer("👥 Синхронизирую пользователей...")
+    
+    await callback.message.edit_text(
+        "🔄 Синхронизация пользователей с Google Sheets...\n\n"
+        "⏳ Пожалуйста, подождите",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+        )
+    )
+    
+    asyncio.create_task(perform_users_sync_task(callback.message.chat.id, callback.message.message_id))
+
+@router.callback_query(F.data == "sync_payments_only")
+async def sync_payments_only_handler(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer("💳 Синхронизирую платежи...")
+    
+    await callback.message.edit_text(
+        "🔄 Синхронизация платежей с Google Sheets...\n\n"
+        "⏳ Пожалуйста, подождите",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+        )
+    )
+    
+    asyncio.create_task(perform_payments_sync_task(callback.message.chat.id, callback.message.message_id))
+
+@router.callback_query(F.data == "sync_servers_only")
+async def sync_servers_only_handler(callback: types.CallbackQuery):
+    if callback.from_user.username not in ADMINS:
+        await callback.answer("Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer("🖥️ Синхронизирую серверы...")
+    
+    await callback.message.edit_text(
+        "🔄 Синхронизация серверов с Google Sheets...\n\n"
+        "⏳ Пожалуйста, подождите",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+        )
+    )
+    
+    asyncio.create_task(perform_servers_sync_task(callback.message.chat.id, callback.message.message_id))
+
+async def perform_full_sync_task(chat_id: int, message_id: int):
+    """Выполняет полную синхронизацию в фоновом режиме"""
+    try:
+        # Импортируем SheetsSync здесь чтобы избежать циклических импортов
+        from sheets.sync_to_sheets import SheetsSync
+        
+        sync = SheetsSync()
+        await sync.full_sync()
+        
+        # Уведомляем об успешной синхронизации
+        await bot.edit_message_text(
+            text="✅ Полная синхронизация завершена успешно!\n\n"
+                 "📊 Все данные обновлены в Google Sheets:\n"
+                 "👥 Пользователи\n"
+                 "💳 Платежи\n"
+                 "🖥️ Серверы",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+        
+    except Exception as e:
+        # Уведомляем об ошибке
+        await bot.edit_message_text(
+            text=f"❌ Ошибка при синхронизации:\n\n{str(e)}\n\n"
+                 "Попробуйте еще раз или обратитесь к разработчику",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+
+async def perform_users_sync_task(chat_id: int, message_id: int):
+    """Выполняет синхронизацию пользователей в фоновом режиме"""
+    try:
+        from sheets.sync_to_sheets import SheetsSync
+        
+        sync = SheetsSync()
+        await sync.sync_users()
+        
+        await bot.edit_message_text(
+            text="✅ Синхронизация пользователей завершена успешно!",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+        
+    except Exception as e:
+        await bot.edit_message_text(
+            text=f"❌ Ошибка при синхронизации пользователей:\n\n{str(e)}",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+
+async def perform_payments_sync_task(chat_id: int, message_id: int):
+    """Выполняет синхронизацию платежей в фоновом режиме"""
+    try:
+        from sheets.sync_to_sheets import SheetsSync
+        
+        sync = SheetsSync()
+        await sync.sync_payments()
+        
+        await bot.edit_message_text(
+            text="✅ Синхронизация платежей завершена успешно!",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+        
+    except Exception as e:
+        await bot.edit_message_text(
+            text=f"❌ Ошибка при синхронизации платежей:\n\n{str(e)}",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+
+async def perform_servers_sync_task(chat_id: int, message_id: int):
+    """Выполняет синхронизацию серверов в фоновом режиме"""
+    try:
+        from sheets.sync_to_sheets import SheetsSync
+        
+        sync = SheetsSync()
+        await sync.sync_servers()
+        
+        await bot.edit_message_text(
+            text="✅ Синхронизация серверов завершена успешно!",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
+        
+    except Exception as e:
+        await bot.edit_message_text(
+            text=f"❌ Ошибка при синхронизации серверов:\n\n{str(e)}",
+            chat_id=chat_id,
+            message_id=message_id,
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[[types.InlineKeyboardButton(text="◀️ Назад", callback_data="admin_sync_sheets")]]
+            )
+        )
 

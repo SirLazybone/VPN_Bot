@@ -2,6 +2,7 @@ from aiogram import Bot
 from config.config import CHANNEL_ID
 from aiogram.enums import ChatMemberStatus
 
+
 async def check_subscription(user_id: int, bot: Bot) -> bool:
     """
     Проверяет, подписан ли пользователь на канал
@@ -14,4 +15,8 @@ async def check_subscription(user_id: int, bot: Bot) -> bool:
         return chat_member.status in [ChatMemberStatus.MEMBER, ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR]
     except Exception as e:
         print(f"Error checking subscription: {e}")
-        return False 
+        return False
+
+
+async def generate_ref_url(telegram_id) -> str:
+    return f'http://t.me/testlearning1234bot?start={telegram_id}'
