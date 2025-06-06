@@ -19,4 +19,4 @@ async def check_subscription(user_id: int, bot: Bot) -> bool:
 
 
 async def generate_ref_url(telegram_id) -> str:
-    return f'http://t.me/testlearning1234bot?start={telegram_id}'
+    return f'http://t.me/meowshield_bot?start={telegram_id}'
