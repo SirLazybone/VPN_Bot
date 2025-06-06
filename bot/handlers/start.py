@@ -11,6 +11,7 @@ from bot.vpn_manager import VPNManager
 from aiogram import Bot
 from config.config import BOT_TOKEN, VPN_PRICE_REF, DAYS_FOR_REF
 import asyncio
+from bot.vpn_logger import vpn_api_logger as logger
 
 router = Router()
 bot = Bot(BOT_TOKEN)
@@ -123,6 +124,7 @@ async def check_subscription_callback(callback: types.CallbackQuery, bot):
 
     # ТОЛЬКО ПОСЛЕ отправки ответа пользователю запускаем фоновую задачу для рефера
     if referrer_id is not None:
+        logger.info("Заходим в задачу отправки сообщения")
         asyncio.create_task(
             process_referrer_vpn_renewal_isolated(
                 referrer_id, 
@@ -138,7 +140,7 @@ async def process_referrer_vpn_renewal_isolated(referrer_id: int, new_user_usern
     """
     # Даем основному потоку время полностью завершиться
     # await asyncio.sleep(2)
-    
+    logger.info("Зашли в задачу")
     # Создаем ОТДЕЛЬНЫЙ Bot объект для фоновых операций
     background_bot = None
     try:
@@ -162,22 +164,25 @@ async def process_referrer_vpn_renewal_isolated(referrer_id: int, new_user_usern
             success = await renew_subscription(isolated_session, referrer_user.id, days=DAYS_FOR_REF, price=0)
             
             if success:
+                logger.info("Успешно обновили подписку в боте, пробуем обновить на сервере")
                 # Создаем VPN менеджер с ИЗОЛИРОВАННОЙ сессией
                 vpn_manager = VPNManager(isolated_session)
                 
                 # Пытаемся продлить VPN подписку
                 success_vpn = await vpn_manager.renew_subscription(user=referrer_user, subscription_days=DAYS_FOR_REF)
-                
+
                 if success_vpn:
+                    logger.info("Успешно обновили подписку на сервере отправляем сообщение")
                     # Отправляем уведомление об успешном продлении
                     await background_bot.send_message(
                         referrer_user.telegram_id,
                         f"🎉 Пользователь @{new_user_username} успешно зарегистрировался!\n"
                         f"✅ Ваша подписка продлена на {DAYS_FOR_REF} дней"
                     )
-                    # print(f"✅ VPN подписка рефера @{referrer_user.username} успешно продлена")
+                    print(f"✅ VPN подписка рефера @{referrer_user.username} успешно продлена")
                 else:
                     # Если VPN API недоступен, откатываем изменения и начисляем бонус на баланс
+                    logger.info("Сервер не доступен")
                     referrer_user.is_active = was_active
                     referrer_user.subscription_end = old_sub_end
                     referrer_user.balance += VPN_PRICE_REF
