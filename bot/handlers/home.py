@@ -25,7 +25,7 @@ async def process_home_action(event):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
-            [InlineKeyboardButton(text='✉️ Пригласить друзей', callback_data="ref")],
+            [InlineKeyboardButton(text='👥 Пригласить друзей', callback_data="ref")],
             [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
@@ -68,7 +68,7 @@ async def new_home_message(callback: types.CallbackQuery):
         inline_keyboard=[
             [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
             [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
-            [InlineKeyboardButton(text='✉️ Пригласить друзей', callback_data="ref")],
+            [InlineKeyboardButton(text='👥 Пригласить друзей', callback_data="ref")],
             [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
             [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
         ]
