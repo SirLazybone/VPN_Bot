@@ -53,7 +53,7 @@ class VPNManager:
     async def create_vpn_config(
             self,
             user: User,
-            subscription_days: int = 30,
+            subscription_days: int = 14,
             server_id: Optional[int] = None,
             is_trial: bool = False
     ) -> Optional[str]:

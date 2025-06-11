@@ -11,6 +11,39 @@ from bot.utils import generate_ref_url
 import asyncio
 router = Router()
 
+@router.callback_query(F.data == "home_first")
+async def home_first_time(callback: types.CallbackQuery):
+    async with async_session() as session:
+        if not await is_user_exist(session, callback.from_user.id):
+            return
+        await session.close()
+
+    await callback.message.answer(text="🚀 Мы запустили реферальную систему в нашем боте!\n\n"
+                                       "🎉 Приглашай друзей, делись ссылкой и получай бонусы "
+                                       "за каждого нового пользователя! 💪", reply_markup=types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [types.InlineKeyboardButton(text='👥 Пригласить друзей', callback_data='ref')]
+        ]
+    ))
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text='🔑 Мои ключи', callback_data='configs')],
+            [InlineKeyboardButton(text='💳 Продлить подписку', callback_data='update_sub')],
+            [InlineKeyboardButton(text='👥 Пригласить друзей', callback_data="ref")],
+            [InlineKeyboardButton(text='🔄 Обновить', callback_data='home_new')],
+            [InlineKeyboardButton(text='❓Поддержка', url=f'https://t.me/{TECH_SUPPORT_USERNAME}')],
+        ]
+    )
+
+    async with async_session() as session:
+        user = await get_or_create_user(session, callback.from_user)
+        await callback.message.answer(
+            f"👋 Привет {user.username}!\n\n"
+            f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y') if user.subscription_end else 'Нет активной подписки'}\n",
+            reply_markup=keyboard
+        )
+
 
 async def process_home_action(event):
     """
@@ -96,7 +129,7 @@ async def configs_callback(callback: types.CallbackQuery):
             if user.subscription_end and user.subscription_end > datetime.utcnow():
                 subscription_days = (user.subscription_end - datetime.utcnow()).days
             else:
-                subscription_days = 30
+                subscription_days = 14
             vpn_link = await vpn_manager.create_vpn_config(
                 user=user,
                 subscription_days=subscription_days

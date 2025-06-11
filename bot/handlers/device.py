@@ -20,7 +20,7 @@ async def process_vpn_config(
     Обработчик создания и отображения VPN конфигурации для различных платформ
 
     :param callback: Объект callback-запроса
-    :param platform: Платформа (например, 'iOS', 'Android')
+    :param platform: Платформа
     :param instruction_url: Необязательная ссылка на инструкцию
     """
     async with async_session() as session:
@@ -34,7 +34,7 @@ async def process_vpn_config(
             ])
 
         keyboard_buttons.append([
-            InlineKeyboardButton(text="🏠 Домой", callback_data="home")
+            InlineKeyboardButton(text="🏠 Домой", callback_data="home_first")
         ])
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
@@ -62,7 +62,7 @@ async def process_vpn_config(
         vpn_manager = VPNManager(session)
         vpn_link = await vpn_manager.create_vpn_config(
             user=user,
-            subscription_days=30
+            subscription_days=14
         )
 
         if vpn_link:
@@ -79,7 +79,7 @@ async def process_vpn_config(
                 "Попробуйте чуть позже в разделе \"Мои ключи\"\n",
                 reply_markup=InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🔄 Попробовать снова", callback_data=callback.data)],
-                    [InlineKeyboardButton(text="🏠 Домой", callback_data='home')],
+                    [InlineKeyboardButton(text="🏠 Домой", callback_data='home_first')],
                 ])
             )
 
