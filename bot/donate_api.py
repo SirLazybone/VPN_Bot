@@ -42,7 +42,8 @@ class DonateApi:
                 return response.json()
         except httpx.HTTPError as e:
             print(f"Error creating donate url: {e}")
-            print(response)
+            print(response.text)
+            print(response.json())
             return None
 
     async def find_donate_url(self, wata_id: uuid) -> Optional[Dict[str, Any]]:
