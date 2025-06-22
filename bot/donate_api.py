@@ -24,7 +24,7 @@ class DonateApi:
         """
         print(f'{self.jwt_token}')
         print(f'{self.headers}')
-        expire = datetime.utcnow() + timedelta(days=1)
+        expire = datetime.utcnow() + timedelta(days=2)
         print(f'{expire.isoformat()}')
 
         content = {
