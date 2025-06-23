@@ -80,8 +80,8 @@ class SheetsSync:
                     str(user.username) if user.username else "",
                     str(user.balance),
                     str(user.created_at),
-                    str(user.subscription_start) if user.subscription_start else "",
-                    str(user.subscription_end) if user.subscription_end else "",
+                    str(user.subscription_start.strftime('%d.%m.%Y')) if user.subscription_start else "",
+                    str(user.subscription_end.strftime('%d.%m.%Y')) if user.subscription_end else "",
                     str(user.is_active),
                     user.vpn_link if user.vpn_link else "",
                     str(user.server_id) if user.server_id else "",
@@ -124,8 +124,8 @@ class SheetsSync:
                     str(payment.amount) if payment.amount else "",
                     str(payment.payment_id) if payment.payment_id else "",
                     str(payment.status),
-                    str(payment.created_at),
-                    str(payment.completed_at) if payment.completed_at else "",
+                    str(payment.created_at.strftime('%d.%m.%Y')),
+                    str(payment.completed_at.strftime('%d.%m.%Y')) if payment.completed_at else "",
                     str(payment.nickname) if payment.nickname else "",
                     str(payment.message) if payment.message else "",
                     str(payment.pay_system) if payment.pay_system else ""
@@ -168,7 +168,7 @@ class SheetsSync:
                     str(server.url),
                     str(server.is_active),
                     str(server.is_default),
-                    str(server.created_at),
+                    str(server.created_at.strftime('%d.%m.%Y')),
                     str(server.description) if server.description else ""
                 ]
                 rows_data.append(row)
