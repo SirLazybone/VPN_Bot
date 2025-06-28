@@ -30,8 +30,7 @@ async def regenerate_vpn_links_for_server(server_id: int):
             logging.info(f"Обрабатываем пользователя {user.username} (telegram_id={user.telegram_id})")
             vpn_manager = VPNManager(session)
 
-            subscription_end_datetime = datetime.fromtimestamp(user.subscription_end)
-            subscription_days = (subscription_end_datetime - datetime.utcnow()).days
+            subscription_days = (user.subscription_end - datetime.utcnow()).days
 
             vpn_link = await vpn_manager.create_vpn_config(user=user, subscription_days=subscription_days, server_id=server_id)
             if vpn_link:
