@@ -1,0 +1,43 @@
+import asyncio
+from db.database import async_session
+from db.models import User
+from bot.vpn_manager import VPNManager
+from sqlalchemy import and_, select
+from datetime import timedelta, datetime
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+async def regenerate_vpn_links_for_server(server_id: int):
+    async with async_session() as session:
+        # Получаем всех пользователей с нужным server_id
+        users = (await session.execute(
+            select(User).where(
+                and_(
+                    User.server_id == server_id,
+                    User.is_active == True
+                )
+
+            )
+        )).fetchall()
+
+        logging.info(f"Найдено пользователей: {len(users)}")
+
+        for user in users:
+            logging.info(f"Обрабатываем пользователя {user.username} (telegram_id={user.telegram_id})")
+            vpn_manager = VPNManager(session)
+
+            subscription_end_datetime = datetime.fromtimestamp(user.subscription_end)
+            subscription_days = (subscription_end_datetime - datetime.utcnow()).days
+
+            vpn_link = await vpn_manager.create_vpn_config(user=user, subscription_days=subscription_days, server_id=server_id)
+            if vpn_link:
+                user.vpn_link = vpn_link
+                logging.info(f"VPN-конфиг обновлен для пользователя {user.username}")
+            else:
+                logging.info(f"Ошибка создания VPN-конфига для пользователя {user.username}")
+        await session.commit()
+        logging.info("Готово!")
+
+if __name__ == "__main__":
+    asyncio.run(regenerate_vpn_links_for_server(server_id=10))
