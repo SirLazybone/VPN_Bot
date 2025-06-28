@@ -20,7 +20,7 @@ async def regenerate_vpn_links_for_server(server_id: int):
                 )
 
             )
-        )).fetchall()
+        )).scalars().all()
 
         logging.info(f"Найдено пользователей: {len(users)}")
         good = 0
