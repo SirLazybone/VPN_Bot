@@ -5,6 +5,7 @@ from bot.vpn_manager import VPNManager
 from sqlalchemy import and_, select
 from datetime import timedelta, datetime
 import logging
+import time
 
 logging.basicConfig(level=logging.INFO)
 
@@ -22,6 +23,8 @@ async def regenerate_vpn_links_for_server(server_id: int):
         )).fetchall()
 
         logging.info(f"Найдено пользователей: {len(users)}")
+        good = 0
+        bad = 0
 
         for user in users:
             logging.info(f"Обрабатываем пользователя {user.username} (telegram_id={user.telegram_id})")
@@ -32,11 +35,15 @@ async def regenerate_vpn_links_for_server(server_id: int):
 
             vpn_link = await vpn_manager.create_vpn_config(user=user, subscription_days=subscription_days, server_id=server_id)
             if vpn_link:
+                good += 1
                 user.vpn_link = vpn_link
                 logging.info(f"VPN-конфиг обновлен для пользователя {user.username}")
             else:
+                bad += 1
                 logging.info(f"Ошибка создания VPN-конфига для пользователя {user.username}")
+            await asyncio.sleep(1)
         await session.commit()
+        logging.info(f"Good: {good}\nBad: {bad}\n")
         logging.info("Готово!")
 
 if __name__ == "__main__":
