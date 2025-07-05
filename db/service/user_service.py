@@ -20,7 +20,7 @@ async def get_or_create_user(session, user_data):
     if user_data.username is None or user_data.username == '' or len(user_data.username) < 4:
         new_user = User(
             telegram_id=user_data.id,
-            username=user_data.id,
+            username=str(user_data.id),
             balance=VPN_PRICE,
             is_active=False
         )

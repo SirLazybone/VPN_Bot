@@ -106,16 +106,16 @@ async def cleanup_vpn_servers():
             stats_after = await get_cleanup_stats(session)
             
             # Формируем отчет для админов
-            report = f"🧹 **Отчет об автоматической очистке VPN серверов**\n"
+            report = f"🧹 <b>Отчет об автоматической очистке VPN серверов</b>\n"
             report += f"📅 Время: {datetime.utcnow().strftime('%d.%m.%Y %H:%M:%S')}\n\n"
             
-            report += f"📊 **Результаты очистки:**\n"
+            report += f"📊 Результаты очистки:\n"
             report += f"✅ Найдено для очистки: {cleanup_result['total_found']}\n"
             report += f"🗑️ Успешно очищено: {cleanup_result['cleaned']}\n"
             report += f"❌ Ошибок: {cleanup_result['errors']}\n\n"
             
             if cleanup_result['cleaned'] > 0:
-                report += f"👥 **Очищенные пользователи:**\n"
+                report += f"👥 <b>Очищенные пользователи:</b>\n"
                 for user_info in cleanup_result['users'][:10]:  # Показываем первых 10
                     if user_info.get('status') == 'cleaned':
                         trial_mark = "🎯" if user_info['trial_used'] else "⭕"
@@ -127,14 +127,14 @@ async def cleanup_vpn_servers():
                     report += f"... и еще {cleanup_result['cleaned'] - 10} пользователей\n"
                 report += "\n"
             
-            report += f"📈 **Статистика до/после очистки:**\n"
+            report += f"📈 <b>Статистика до/после очистки:</b>\n"
             report += f"👥 Всего пользователей: {stats_before['total_users']} → {stats_after['total_users']}\n"
             report += f"✅ Активных: {stats_before['active_users']} → {stats_after['active_users']}\n"
             report += f"🖥️ С VPN конфигами: {stats_before['users_with_vpn']} → {stats_after['users_with_vpn']}\n"
             report += f"🗑️ Кандидатов на очистку: {stats_before['cleanup_candidates']} → {stats_after['cleanup_candidates']}\n"
             
             if cleanup_result['errors'] > 0:
-                report += f"\n⚠️ **Ошибки при очистке:** {cleanup_result['errors']}\n"
+                report += f"\n⚠️ <b>Ошибки при очистке:</b> {cleanup_result['errors']}\n"
                 report += f"Проверьте логи для деталей."
             
             # Отправляем отчет всем админам
@@ -151,7 +151,7 @@ async def cleanup_vpn_servers():
                             await bot.send_message(
                                 admin_user.telegram_id,
                                 report,
-                                parse_mode='Markdown'
+                                parse_mode='HTML'
                             )
                             print(f"✅ Отчет отправлен админу @{admin}")
                         else:
