@@ -309,9 +309,9 @@ async def check_payment(callback: types.CallbackQuery):
                         message_text = (
                             f"✅ Подписка успешно продлена!\n\n"
                             f"📅 Период: {period_text}\n"
-                            f"Подписка активна до: {updated_user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                            f"Ваша VPN конфигурация:\n\n"
-                            f"```\n{updated_user.vpn_link}\n```"
+                            f"📅 Подписка активна до: {updated_user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                            f"🔗 Ваша VPN ссылка:\n\n"
+                            f"{updated_user.vpn_link}\n\n"
                         )
                     else:
                         message_text = (

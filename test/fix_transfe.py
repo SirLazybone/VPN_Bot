@@ -9,16 +9,13 @@ import time
 
 logging.basicConfig(level=logging.INFO)
 
-async def regenerate_vpn_links_for_server(server_id: int):
+async def regenerate_vpn_links():
+    """Регенерирует VPN ссылки для всех активных пользователей"""
     async with async_session() as session:
-        # Получаем всех пользователей с нужным server_id
+        # Получаем всех активных пользователей
         users = (await session.execute(
             select(User).where(
-                and_(
-                    User.server_id == server_id,
-                    User.is_active == True
-                )
-
+                User.is_active == True
             )
         )).scalars().all()
 
@@ -32,7 +29,7 @@ async def regenerate_vpn_links_for_server(server_id: int):
 
             subscription_days = (user.subscription_end - datetime.utcnow()).days
 
-            vpn_link = await vpn_manager.create_vpn_config(user=user, subscription_days=subscription_days, server_id=server_id)
+            vpn_link = await vpn_manager.create_vpn_config(user=user, subscription_days=subscription_days)
             if vpn_link:
                 good += 1
                 user.vpn_link = vpn_link
@@ -46,4 +43,4 @@ async def regenerate_vpn_links_for_server(server_id: int):
         logging.info("Готово!")
 
 if __name__ == "__main__":
-    asyncio.run(regenerate_vpn_links_for_server(server_id=10))
+    asyncio.run(regenerate_vpn_links())

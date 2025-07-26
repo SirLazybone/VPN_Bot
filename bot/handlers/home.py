@@ -146,11 +146,11 @@ async def configs_callback(callback: types.CallbackQuery):
                 )
             else:
                 await callback.message.edit_text(
-                    f"```\n{user.vpn_link}\n```\n\n"
-                    f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
+                    f"🔗 Ваша VPN ссылка:\n\n"
+                    f"{user.vpn_link}\n\n"
                     f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
                     reply_markup=keyboard,
-                    parse_mode="Markdown"
+                    disable_web_page_preview=False
                 )
             await callback.answer()
             return
@@ -166,11 +166,11 @@ async def configs_callback(callback: types.CallbackQuery):
             await callback.answer()
             return
         await callback.message.edit_text(
-            f"```\n{user.vpn_link}\n```\n\n"
-            f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
+            f"🔗 Ваша VPN ссылка:\n\n"
+            f"{user.vpn_link}\n\n"
             f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
             reply_markup=keyboard,
-            parse_mode="Markdown"
+            disable_web_page_preview=False
         )
         await callback.answer() 
 
@@ -304,9 +304,13 @@ async def process_update_sub_action(event, period_months, price):
                     message_text = (
                         "✅ Подписка успешно продлена!\n\n"
                         f"📅 Период: {period_months} мес.\n"
-                        f"Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
-                        f"Ваша VPN конфигурация:\n\n"
-                        f"```\n{user.vpn_link}\n```"
+                        f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n\n"
+                        f"🔗 Ваша VPN ссылка:\n\n"
+                        f"{user.vpn_link}\n\n"
+                        f"📋 Как использовать:\n"
+                        f"1. Нажмите на ссылку выше\n"
+                        f"2. Выберите ваше устройство и приложение\n"
+                        f"3. Следуйте инструкции для подключения"
                     )
                 else:
                     message_text = (

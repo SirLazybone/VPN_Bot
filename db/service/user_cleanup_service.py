@@ -42,21 +42,19 @@ async def cleanup_user_from_server(
     """
     try:
         vpn_manager = VPNManager(session)
-        success = await vpn_manager.delete_user(user.username, server_id=user.server_id)
+        success = await vpn_manager.delete_user(user.username)
         
         if success:
             # Обновляем состояние пользователя в БД
             user.vpn_link = None  # Удаляем VPN ссылку
             user.is_active = False
-            user.server_id = None
-            # server_id оставляем для истории, на каком сервере был пользователь
             # is_active и trial_used не трогаем для сохранения истории
             
             await session.commit()
-            print(f"✅ Пользователь {user.username} удален с сервера {user.server_id} ({reason})")
+            print(f"✅ Пользователь {user.username} удален с сервера ({reason})")
             return True
         else:
-            print(f"❌ Не удалось удалить пользователя {user.username} с сервера {user.server_id}")
+            print(f"❌ Не удалось удалить пользователя {user.username} с сервера")
             return False
             
     except Exception as e:

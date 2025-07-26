@@ -8,21 +8,21 @@ from db.database import async_session
 from db.models import User
 from sqlalchemy import select, update
 from aiogram import Bot
-from config.config import BOT_TOKEN, ADMIN_NAME_1, ADMIN_NAME_2, API_TOKEN
+from config.config import BOT_TOKEN, ADMIN_NAME_1, ADMIN_NAME_2, API_TOKEN, API_URL
 
 
 bot = Bot(token=BOT_TOKEN)
 ADMINS = [ADMIN_NAME_1, ADMIN_NAME_2]
 logger = logging.getLogger(__name__)
 
-async def give_new_url(server_id: int, api_url: str):
+async def give_new_url(server_id: int):
     """
-    Создает новые VPN ссылки для пользователей с истекшей подпиской на указанном сервере
+    Создает новые VPN ссылки для пользователей с активной подпиской
+    """
+    if not API_URL:
+        logger.error("❌ API_URL не настроен в конфигурации")
+        return
     
-    Args:
-        server_id (int): ID сервера для создания новых ссылок
-        api_url (str): URL API сервера для создания VPN конфигураций
-    """
     async with async_session() as session:
         now = datetime.datetime.utcnow()
         result = await session.execute(select(User).where(
@@ -40,7 +40,7 @@ async def give_new_url(server_id: int, api_url: str):
         for user in users:
             try:
                 expire_timestamp = int(user.subscription_end.timestamp())
-                response = await get_url(user.username, api_url, expire_timestamp)
+                response = await get_url(user.username, expire_timestamp)
                 
                 if response and 'subscription_url' in response:
                     new_url = response['subscription_url']
@@ -67,6 +67,9 @@ async def give_new_url(server_id: int, api_url: str):
 
 📋 Как использовать:
 1. Перейдите по ссылке выше
+2. Выбрать устройство которое используете и приложение
+3. Скачайте приложение \ перенесите подписку в приложение по кнопке
+4. Теперь вам доступно множество серверов по одной подписке
 
 ⏰ Действительна до: {user.subscription_end.strftime('%d.%m.%Y %H:%M')}
 
@@ -97,8 +100,7 @@ async def give_new_url(server_id: int, api_url: str):
         report_message = f"""
 📊 Отчет по созданию новых VPN ссылок
 
-🖥️ Сервер: {server_id})
-🌐 API URL: {api_url}
+🌐 API URL: {API_URL}
 
 📈 Статистика:
 ✅ Успешно: {success_count}
@@ -121,7 +123,7 @@ async def give_new_url(server_id: int, api_url: str):
                     logger.error(f"Не удалось отправить отчет администратору {admin_username}: {e}")
 
 
-async def get_url(username: str, api_url: str, expire_timestamp: int):
+async def get_url(username: str, expire_timestamp: int):
     headers = {
         "Authorization": f"Bearer {API_TOKEN}",
         "Content-Type": "application/json"
@@ -158,7 +160,7 @@ async def get_url(username: str, api_url: str, expire_timestamp: int):
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                f"{api_url}/api/user",
+                f"{API_URL}/api/user",
                 headers=headers,
                 json=request_data
             )
@@ -193,4 +195,4 @@ async def get_url(username: str, api_url: str, expire_timestamp: int):
 
 
 if __name__ == "__main__":
-    asyncio.run(give_new_url(10, "https://meow-meow.nethcloud.top"))
+    asyncio.run(give_new_url(2))

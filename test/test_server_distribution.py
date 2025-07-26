@@ -202,7 +202,7 @@ async def test_server_load_balancing():
         with patch('bot.vpn_manager.VPNClient') as mock_vpn_client:
             mock_instance = AsyncMock()
             mock_instance.create_vpn_config.return_value = {
-                'links': ['test://vpn-config-link']
+                'subscription_url': 'test://vpn-config-link'
             }
             mock_vpn_client.from_server.return_value = mock_instance
             mock_vpn_client.from_fallback.return_value = mock_instance

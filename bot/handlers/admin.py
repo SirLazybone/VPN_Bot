@@ -586,7 +586,7 @@ async def delete_user_process(callback: types.CallbackQuery, state: FSMContext):
         await session.execute(delete(User).where(User.id == user_id))
         vpn_manager = VPNManager(session)
         text = ""
-        if await vpn_manager.delete_user(username, server_id=user.server_id):
+        if await vpn_manager.delete_user(username):
             text = "Пользователь успешно удалён на сервере"
         else:
             text = "Не удалось удалить пользователя на сервере"

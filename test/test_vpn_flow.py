@@ -55,7 +55,7 @@ async def test_vpn_flow():
 
         # Создаем VPN конфигурацию
         vpn_manager = VPNManager(session)
-        vpn_link = await vpn_manager.create_or_update_vpn_config(
+        vpn_link = await vpn_manager.create_vpn_config(
             user=test_user,
             subscription_days=30
         )
@@ -77,16 +77,16 @@ async def test_vpn_flow():
         assert test_user.subscription_end > datetime.utcnow(), "Некорректная дата окончания подписки"
 
         # Проверяем получение существующей конфигурации
-        existing_link = await vpn_manager.get_vpn_config(test_user)
-        assert existing_link == vpn_link, "Получена некорректная конфигурация"
+        existing_config = await vpn_manager.get_user_config(test_user)
+        assert existing_config is not None, "Не удалось получить конфигурацию пользователя"
 
         # Симулируем продление подписки
-        renewal_link = await vpn_manager.renew_subscription(
+        renewal_success = await vpn_manager.renew_subscription(
             user=test_user,
             subscription_days=30
         )
         
-        if not renewal_link:
+        if not renewal_success:
             logger.error("Ошибка при продлении подписки")
             return
             

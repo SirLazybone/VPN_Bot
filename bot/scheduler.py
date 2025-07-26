@@ -119,8 +119,7 @@ async def cleanup_vpn_servers():
                 for user_info in cleanup_result['users'][:10]:  # Показываем первых 10
                     if user_info.get('status') == 'cleaned':
                         trial_mark = "🎯" if user_info['trial_used'] else "⭕"
-                        server_display = user_info['server_id'] if user_info['server_id'] else 'Не назначен'
-                        report += f"• @{user_info['username']} {trial_mark} (сервер {server_display})\n"
+                        report += f"• @{user_info['username']} {trial_mark}\n"
                         report += f"  Истекла {user_info['days_since_expired']} дн. назад\n"
                 
                 if cleanup_result['cleaned'] > 10:

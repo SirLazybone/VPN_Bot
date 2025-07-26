@@ -41,12 +41,15 @@ async def process_vpn_config(
 
         if user.vpn_link:
             await callback.message.edit_text(
-                f"🔑 Ваша VPN конфигурация:\n\n"
-                f"```\n{user.vpn_link}\n```\n\n"
-                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}\n"
-                "Нажмите на конфигурации для копирования",
+                f"🔗 Ваша VPN ссылка:\n\n"
+                f"{user.vpn_link}\n\n"
+                f"📋 Как использовать:\n"
+                f"1. Нажмите на ссылку выше\n"
+                f"2. Выберите ваше устройство и приложение\n"
+                f"3. Следуйте инструкции для подключения\n\n"
+                f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
                 reply_markup=keyboard,
-                parse_mode="Markdown"
+                disable_web_page_preview=False
             )
             await callback.answer()
             return
@@ -67,11 +70,15 @@ async def process_vpn_config(
 
         if vpn_link:
             await callback.message.edit_text(
-                f"```\n{user.vpn_link}\n```\n\n"
-                f"🔐 Ваш ключ готов! Скопируйте его нажатием и вставьте в соответствии с инструкцией.\n\n"
+                f"🔗 Ваша VPN ссылка:\n\n"
+                f"{user.vpn_link}\n\n"
+                f"📋 Как использовать:\n"
+                f"1. Нажмите на ссылку выше\n"
+                f"2. Выберите ваше устройство и приложение\n"
+                f"3. Следуйте инструкции для подключения\n\n"
                 f"📅 Подписка активна до: {user.subscription_end.strftime('%d.%m.%Y')}",
                 reply_markup=keyboard,
-                parse_mode="Markdown"
+                disable_web_page_preview=False
             )
         else:
             await callback.message.edit_text(
