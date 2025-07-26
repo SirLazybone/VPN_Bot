@@ -15,7 +15,7 @@ class VPNManager:
     def _get_vpn_client(self) -> VPNClient:
         """Получает VPN клиент для единой API"""
         logger.info("🔍 Создаю VPN клиент для единой API")
-        return VPNClient.from_fallback()
+        return VPNClient.from_fallback() # всегда выбираем один
 
     async def create_vpn_config(
             self,
