@@ -217,7 +217,8 @@ async def _create_vpn_configs_in_background(
                     # Рассчитываем новую дату окончания подписки (исходная + 30 дней)
                     original_end = user_data['original_subscription_end']
                     extended_end = original_end + timedelta(days=30)
-                    user.subscription_end = extended_end
+                    # Сохраняем новую дату для установки после refresh
+                    target_subscription_end = extended_end
                     
                     # Создаем новую VPN конфигурацию на целевом сервере с продленной подпиской
                     new_expire_ts = int(extended_end.timestamp())
@@ -229,6 +230,8 @@ async def _create_vpn_configs_in_background(
                     if vpn_success:
                         # Получаем обновленного пользователя для получения новой VPN ссылки
                         await session.refresh(user)
+                        # Устанавливаем новую дату ПОСЛЕ refresh, чтобы она не была перезаписана
+                        user.subscription_end = target_subscription_end
                         
                         # Отправляем уведомление с новой VPN ссылкой
                         message = (
@@ -246,6 +249,8 @@ async def _create_vpn_configs_in_background(
                     else:
                         # Если не удалось создать VPN, отправляем сообщение с просьбой создать вручную
                         # Но подписка всё равно продлена
+                        user.subscription_end = target_subscription_end
+                        
                         message = (
                             f"⚠️ ТРЕБУЕТСЯ ДЕЙСТВИЕ\n\n"
                             f"Ваш сервер '{source_server_name}' был недоступен. Мы переназначили вас на '{target_server_name}', но не смогли автоматически создать новую конфигурацию.\n\n"

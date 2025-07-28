@@ -479,7 +479,8 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
         if not user.subscription_start:
             user.subscription_start = datetime.utcnow()
         
-        user.subscription_end = new_date
+        # Сохраняем новую дату для установки после refresh
+        target_subscription_end = new_date
         user.is_active = True  # Activate user when setting subscription
 
         vpn_manager = VPNManager(session)
@@ -488,6 +489,12 @@ async def edit_subscription_process(message: types.Message, state: FSMContext):
         if vpn_success:
             # Получаем обновленного пользователя для получения актуальной VPN ссылки
             await session.refresh(user)
+            # Устанавливаем новую дату ПОСЛЕ refresh, чтобы она не была перезаписана
+            user.subscription_end = target_subscription_end
+            
+        else:
+            # Если VPN не обновился, всё равно меняем дату в БД
+            user.subscription_end = target_subscription_end
             
         await session.commit()
 
