@@ -147,8 +147,7 @@ class VPNManager:
                 # Обновляем данные пользователя
                 user.vpn_link = vpn_config['subscription_url']
                 
-                logger.info("💾 Сохраняю новую конфигурацию в БД...")
-                await self.db.commit()
+                logger.info("💾 VPN конфигурация готова, изменения будут сохранены внешним кодом")
                 logger.info(f"✅ Создана новая VPN конфигурация для {user.username}")
                 return True
                 
@@ -191,8 +190,7 @@ class VPNManager:
                 
                 if vpn_config and vpn_config.get('subscription_url'):
                     user.vpn_link = vpn_config['subscription_url']
-                    logger.info("💾 Сохраняю восстановленную конфигурацию в БД...")
-                    await self.db.commit()
+                    logger.info("💾 VPN конфигурация восстановлена, изменения будут сохранены внешним кодом")
                     logger.info(f"✅ Создана новая VPN конфигурация для {user.username}")
                     return True
                 else:
