@@ -121,7 +121,7 @@ class SheetsSync:
                 row = [
                     str(payment.id),
                     str(payment.user_id),
-                    str(payment.amount) if payment.amount else "",
+                    payment.amount if payment.amount else "",
                     str(payment.payment_id) if payment.payment_id else "",
                     str(payment.status),
                     str(payment.created_at.strftime('%d.%m.%Y')),
